@@ -1,0 +1,6 @@
+transformers
+torch
+torchaudio
+pydub
+pyannote.audio
+speechbrain

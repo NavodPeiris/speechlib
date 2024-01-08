@@ -1,0 +1,3 @@
+from .speechlib import(
+    Transcriptor
+)
