@@ -26,11 +26,13 @@ def wav_file_segmentation(file_name, segments, language):
         file = folder_name + "/" + "segment"+ str(i) + ".wav"
         clip.export(file, format="wav")
 
-        trans = transcribe(file, language)  
-        
-        # return -> [[start time, end time, transcript], [start time, end time, transcript], ..]
-        texts.append([segment[0], segment[1], trans])
-
+        try:
+            trans = transcribe(file, language)  
+            
+            # return -> [[start time, end time, transcript], [start time, end time, transcript], ..]
+            texts.append([segment[0], segment[1], trans])
+        except:
+            pass
         # Delete the WAV file after processing
         os.remove(file)
 

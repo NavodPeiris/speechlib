@@ -5,12 +5,22 @@ from .wav_segmenter import (wav_file_segmentation)
 from .speaker_recognition import (speaker_recognition)
 from .write_log_file import (write_log_file)
 
+from .re_encode import (re_encode)
+from .convert_to_mono import (convert_to_mono)
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
 def core_analysis(file_name, voices_folder, log_folder, language):
 
-    # <-------------------Processing file-------------------------->
+    # <-------------------PreProcessing file-------------------------->
+
+    # convert file to mono
+    convert_to_mono(file_name)
+
+    # re-encode file to 16-bit PCM encoding
+    re_encode(file_name)
+
+    # <--------------------running analysis--------------------------->
 
     speaker_tags = []
 

@@ -39,17 +39,20 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
             for voice in voices:
                 voice_file = voices_folder + "/" + speaker + "/" + voice
 
-                # compare voice file with audio file
-                score, prediction = verification.verify_files(voice_file, file)
-                prediction = prediction[0].item()
-                score = score[0].item()
+                try:
+                    # compare voice file with audio file
+                    score, prediction = verification.verify_files(voice_file, file)
+                    prediction = prediction[0].item()
+                    score = score[0].item()
 
-                if prediction == True:
-                    if score >= max_score:
-                        max_score = score
-                        speakerId = speaker.split(".")[0]  
-                        if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
-                            person = speakerId
+                    if prediction == True:
+                        if score >= max_score:
+                            max_score = score
+                            speakerId = speaker.split(".")[0]  
+                            if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
+                                person = speakerId
+                except:
+                    pass
 
         Id_count[person] += 1
 
