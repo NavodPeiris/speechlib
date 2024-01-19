@@ -1,3 +1,8 @@
+installation:
+```
+pip install speechlib
+```
+
 This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙ 
 
 This library contains following audio preprocessing functions:
