@@ -51,10 +51,12 @@ res = transcriptor.transcribe()
 res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
 ```
 
-start: starting time of speech  
-end: ending time of speech  
+start: starting time of speech in seconds  
+end: ending time of speech in seconds  
 text: transcribed text for speech   during start and end  
-speaker: speaker of the text
+speaker: speaker of the text  
+
+![Transcript](transcript.png)
 
 supported languages:  
 
