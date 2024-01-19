@@ -1,30 +1,49 @@
-This library do speaker diarization, speaker recognition, transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. This library also contain audio preprocessor functions.
+This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙ 
 
-Transcriptor takes 4 arguments. file to transcribe, log_folder, language used for transcribing, voices folder
+This library contains following audio preprocessing functions:
 
-voices_folder should contain subfolders named with speaker names and their voice samples. This will be used for speaker recognition to identify speaker.
+1. convert mp3 to wav
 
-if voice_folder is not provided then speaker tags will be arbitrary.
+2. convert stereo wav file to mono
 
-log_folder is to store final transcript as a text file.
+3. re-encode the wav file to have 16-bit PCM encoding
+
+Transcriptor method takes 5 arguments. 
+
+1. file to transcribe
+
+2. log_folder to store transcription
+
+3. language used for transcribing
+
+4. model size ("tiny", "medium", or "large")
+
+5. voices_folder (contains speaker voice samples for speaker recognition)
+
+voices_folder should contain subfolders named with speaker names. Each subfolder belongs to a speaker and it can contain many voice samples. This will be used for speaker recognition to identify the speaker.
+
+if voices_folder is not provided then speaker tags will be arbitrary.
+
+log_folder is to store the final transcript as a text file.
+
+transcript will also indicate the timeframe in seconds where each speaker speaks.
 
 ### Transcription example:
 
 ```
 from speechlib import Transcriptor
 
-file = "obama.wav"
-voice_folder = "voices"
+file = "obama1.wav"
+voices_folder = "voices"
 language = "english"
 log_folder = "logs"
+modelSize = "medium"
 
-transcriptor = Transcriptor(file, log_folder, language, voice_folder)
+transcriptor = Transcriptor(file, log_folder, language, modelSize, voices_folder)
 
 res = transcriptor.transcribe()
 
-print(res)
-
---> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
+res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
 ```
 
 start: starting time of speech  
