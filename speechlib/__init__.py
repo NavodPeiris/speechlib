@@ -1,3 +1,4 @@
 from .speechlib import(
-    Transcriptor
+    Transcriptor,
+    PreProcessor
 )

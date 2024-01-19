@@ -1,7 +1,27 @@
 from .core_analysis import (core_analysis)
+from .re_encode import (re_encode)
+from .convert_to_mono import (convert_to_mono)
+from .mp3_to_wav import (mp3_to_wav)
 
 class Transcriptor:
-    def __init__(self, file, log_folder, language, voices_folder=None):
+    '''transcribe a wav file 
+    
+        arguments:
+
+        file: name of wav file with extension ex: file.wav
+
+        log_folder: name of folder where transcript will be stored
+
+        language: language of wav file
+
+        modelSize: tiny, medium, large (bigger model is more accurate but slow!!)
+
+        voices_folder: folder containing subfolders named after each speaker with speaker voice samples in them. This will be used for speaker recognition
+
+        see documentation: https://github.com/Navodplayer1/speechlib
+    '''
+
+    def __init__(self, file, log_folder, language, modelSize, voices_folder=None):
         '''
         supported languages:  
         ['english', 
@@ -118,7 +138,31 @@ class Transcriptor:
         self.voices_folder = voices_folder
         self.language = language
         self.log_folder = log_folder
+        self.modelSize = modelSize
 
     def transcribe(self):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language)
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize)
         return res
+
+class PreProcessor:
+    '''
+    class for preprocessing audio files.
+
+    methods:
+
+    re_encode(file) -> re-encode file to 16-bit PCM encoding  
+
+    convert_to_mono(file) -> convert file from stereo to mono  
+
+    mp3_to_wav(file) -> convert mp3 file to wav format  
+
+    '''
+
+    def re_encode(file):
+        re_encode(file)
+    
+    def convert_to_mono(file):
+        convert_to_mono(file)
+
+    def mp3_to_wav(file):
+        mp3_to_wav(file)

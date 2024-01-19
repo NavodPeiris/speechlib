@@ -10,7 +10,7 @@ from .convert_to_mono import (convert_to_mono)
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
 
     # <-------------------PreProcessing file-------------------------->
 
@@ -85,7 +85,7 @@ def core_analysis(file_name, voices_folder, log_folder, language):
     # transcribing the texts differently according to speaker
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize)
         speakers[spk_tag] = segment_out
 
     common_segments = []
