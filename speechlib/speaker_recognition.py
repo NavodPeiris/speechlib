@@ -3,7 +3,7 @@ import os
 from pydub import AudioSegment
 from collections import defaultdict
 
-verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
+verification = SpeakerRecognition.from_hparams(run_opts={"device":"cuda"}, source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
 
 # recognize speaker name
 def speaker_recognition(file_name, voices_folder, segments, wildcards):
