@@ -57,12 +57,19 @@ text: transcribed text for speech   during start and end
 speaker: speaker of the text 
 
 voices_folder structure:  
-
-![voices_folder structure](voices_folder_structure.png)
-
-Generated transcript:  
-
-![Transcript](transcript.png)
+```
+voices_folder    
+|---> person1      
+|        |---> sample1.wav   
+|        |---> sample2.wav     
+|                ...
+|
+|---> person2  
+|        |---> sample1.wav  
+|        |---> sample2.wav   
+|                ...
+|--> ...  
+```
 
 supported languages:  
 
