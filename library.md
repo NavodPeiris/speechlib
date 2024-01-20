@@ -1,3 +1,8 @@
+installation:
+```
+pip install speechlib
+```
+
 This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙ 
 
 This library contains following audio preprocessing functions:
@@ -46,10 +51,18 @@ res = transcriptor.transcribe()
 res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
 ```
 
-start: starting time of speech  
-end: ending time of speech  
+start: starting time of speech in seconds  
+end: ending time of speech in seconds  
 text: transcribed text for speech   during start and end  
-speaker: speaker of the text
+speaker: speaker of the text 
+
+voices_folder structure:  
+
+![voices_folder structure](voices_folder_structure.png)
+
+Generated transcript:  
+
+![Transcript](transcript.png)
 
 supported languages:  
 
