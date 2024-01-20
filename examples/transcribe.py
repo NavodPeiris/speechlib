@@ -1,6 +1,6 @@
 from speechlib import Transcriptor
 
-file = "obama1.wav"
+file = "obama_zach.wav"
 voices_folder = "voices"
 language = "english"
 log_folder = "logs"
