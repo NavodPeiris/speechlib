@@ -75,7 +75,7 @@ speaker: speaker of the text
 
 voices_folder structure:  
 
-![voices_folder structure](voices_folder_structure.png)
+![voices_folder structure](voices_folder_structure1.png)
 
 Generated transcript:  
 
