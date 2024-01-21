@@ -2,8 +2,12 @@ from speechbrain.pretrained import SpeakerRecognition
 import os
 from pydub import AudioSegment
 from collections import defaultdict
+import torch
 
-verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
+if torch.cuda.is_available():
+    verification = SpeakerRecognition.from_hparams(run_opts={"device":"cuda"}, source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
+else:
+    verification = SpeakerRecognition.from_hparams(run_opts={"device":"cpu"}, source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
 
 # recognize speaker name
 def speaker_recognition(file_name, voices_folder, segments, wildcards):

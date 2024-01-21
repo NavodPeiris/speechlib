@@ -1,6 +1,7 @@
 from pyannote.audio import Pipeline
 from .hf_access import (ACCESS_TOKEN)
 from .wav_segmenter import (wav_file_segmentation)
+import torch, torchaudio
 
 from .speaker_recognition import (speaker_recognition)
 from .write_log_file import (write_log_file)
@@ -27,7 +28,15 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
                                     use_auth_token=ACCESS_TOKEN)
 
-    diarization = pipeline(file_name, min_speakers=0, max_speakers=10)
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    pipeline.to(device)
+    waveform, sample_rate = torchaudio.load(file_name)
+
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=0, max_speakers=10)
 
     speakers = {}
 
