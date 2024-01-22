@@ -3,14 +3,17 @@ from datetime import datetime
 
 def write_log_file(common_segments, log_folder):
 
+    if not os.path.exists(log_folder):
+        os.makedirs(log_folder)
+
     file_name = "output"
     current_datetime = datetime.now().strftime("%Y-%m-%d")
 
     #---------------------log file part-------------------------
 
-    log_file = file_name + "_" + current_datetime + ".txt"
-
-    lf=open(os.path.join(log_folder, log_file),"wb")
+    log_file = log_folder + "/" + file_name + "_" + current_datetime + ".txt"
+    
+    lf=open(log_file,"wb")
 
     entry = ""
     

@@ -5,7 +5,7 @@ with open("library.md", "r") as f:
 
 setup(
     name="speechlib",
-    version="1.0.7",  
+    version="1.0.10",  
     description="speechlib is a library that can do speaker diarization, transcription and speaker recognition on an audio file to create transcripts with actual speaker names. This library also contain audio preprocessor functions.",
     packages=find_packages(),
     long_description=long_description,
@@ -19,6 +19,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Operating System :: OS Independent",
     ],
-    install_requires=["transformers", "torch", "torchaudio", "pydub", "pyannote.audio", "speechbrain", "accelerate"],
-    python_requires=">=3.7",
+    install_requires=["transformers", "torch", "torchaudio", "pydub", "pyannote.audio", "speechbrain", "accelerate", "faster-whisper"],
+    python_requires=">=3.8",
 )

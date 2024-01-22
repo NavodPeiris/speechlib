@@ -3,9 +3,7 @@ from speechlib import PreProcessor
 file = "obama1.mp3"
 
 # convert mp3 to wav
-PreProcessor.mp3_to_wav(file)   
-
-wav_file = "obama1.wav"
+wav_file = PreProcessor.convert_to_wav(file)   
 
 # convert wav file from stereo to mono
 PreProcessor.convert_to_mono(wav_file)
