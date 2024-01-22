@@ -3,7 +3,7 @@ from pydub import AudioSegment
 from .transcribe import (transcribe)
 
 # segment according to speaker
-def wav_file_segmentation(file_name, segments, language, modelSize):
+def wav_file_segmentation(file_name, segments, language, modelSize, quantization):
     # Load the WAV file
     audio = AudioSegment.from_file(file_name, format="wav")
     trans = ""
@@ -27,7 +27,7 @@ def wav_file_segmentation(file_name, segments, language, modelSize):
         clip.export(file, format="wav")
 
         try:
-            trans = transcribe(file, language, modelSize)  
+            trans = transcribe(file, language, modelSize, quantization)  
             
             # return -> [[start time, end time, transcript], [start time, end time, transcript], ..]
             texts.append([segment[0], segment[1], trans])

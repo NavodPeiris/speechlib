@@ -1,4 +1,5 @@
 from pyannote.audio import Pipeline
+import time
 from .hf_access import (ACCESS_TOKEN)
 from .wav_segmenter import (wav_file_segmentation)
 import torch, torchaudio
@@ -8,12 +9,16 @@ from .write_log_file import (write_log_file)
 
 from .re_encode import (re_encode)
 from .convert_to_mono import (convert_to_mono)
+from .convert_to_wav import (convert_to_wav)
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize, quantization=False):
 
     # <-------------------PreProcessing file-------------------------->
+
+    # check if file is in wav format, if not convert to wav
+    file_name = convert_to_wav(file_name)
 
     # convert file to mono
     convert_to_mono(file_name)
@@ -36,7 +41,12 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
     pipeline.to(device)
     waveform, sample_rate = torchaudio.load(file_name)
 
+    start_time = int(time.time())
+    print("running diarization...")
     diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=0, max_speakers=10)
+    end_time = int(time.time())
+    elapsed_time = int(end_time - start_time)
+    print(f"diarization done. Time taken: {elapsed_time} seconds.")
 
     speakers = {}
 
@@ -62,12 +72,17 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
     if voices_folder != None:
         identified = []
 
+        start_time = int(time.time())
+        print("running speaker recognition...")
         for spk_tag, spk_segments in speakers.items():
             spk_name = speaker_recognition(file_name, voices_folder, spk_segments, identified)
             spk = spk_name
             identified.append(spk)
             speaker_map[spk_tag] = spk
-            
+        end_time = int(time.time())
+        elapsed_time = int(end_time - start_time)
+        print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
+
     keys_to_remove = []
     merged = []
 
@@ -92,10 +107,15 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize):
         del speaker_map[key]
 
     # transcribing the texts differently according to speaker
+    start_time = int(time.time())
+    print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, quantization)
         speakers[spk_tag] = segment_out
+    end_time = int(time.time())
+    elapsed_time = int(end_time - start_time)
+    print(f"transcription done. Time taken: {elapsed_time} seconds.")
 
     common_segments = []
 

@@ -25,6 +25,14 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
     i = 0
     
+    '''
+    iterate over segments and check speaker for increased accuracy.
+    assign speaker name to arbitrary speaker tag 'SPEAKER_XX'
+    '''
+
+    limit = 60
+    duration = 0
+
     for segment in segments:
         start = segment[0] * 1000   # start time in miliseconds
         end = segment[1] * 1000     # end time in miliseconds
@@ -62,6 +70,12 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
         # Delete the WAV file after processing
         os.remove(file)
+
+        current_pred = max(Id_count, key=Id_count.get)
+
+        duration += (end - start)
+        if duration >= limit and current_pred != "unknown":
+            break
     
     most_common_Id = max(Id_count, key=Id_count.get)
     return most_common_Id

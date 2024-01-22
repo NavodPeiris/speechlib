@@ -1,0 +1,67 @@
+These metrics are from Google Colab tests.
+These metrics do not take into account model download times.
+These metrics are done without quantization enabled.
+(quantization will make this even faster)
+
+metrics for faster-whisper "tiny" model:
+    on cpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 
+        speaker recognition time: 
+        transcription time: 
+
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 64s
+
+
+metrics for faster-whisper "small" model:
+    on cpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 
+        speaker recognition time: 
+        transcription time: 
+
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 95s
+
+
+metrics for faster-whisper "medium" model:
+    on cpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 
+        speaker recognition time: 
+        transcription time: 
+
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 193s
+
+
+metrics for faster-whisper "large" model:
+    on cpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 
+        speaker recognition time: 
+        transcription time: 
+
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 343s
