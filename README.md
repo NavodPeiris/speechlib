@@ -48,7 +48,7 @@ This library does speaker diarization, speaker recognition, and transcription on
 
 This library contains following audio preprocessing functions:
 
-1. convert mp3 to wav
+1. convert other audio formats to wav
 
 2. convert stereo wav file to mono
 
@@ -94,6 +94,8 @@ res = transcriptor.transcribe()
 
 res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
 ```
+
+#### if you don't want speaker names: keep voices_folder as an empty string ""
 
 start: starting time of speech in seconds  
 end: ending time of speech in seconds  
