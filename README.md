@@ -37,7 +37,7 @@ on google colab run this to install CUDA dependencies:
 !apt install libcublas11
 ```
 
-You can see this example [notebook]()
+You can see this example [notebook](https://colab.research.google.com/drive/1lpoWrHl5443LSnTG3vJQfTcg9oFiCQSz?usp=sharing)
 
 ### installation:
 ```
@@ -143,6 +143,50 @@ PreProcessor.convert_to_mono(wav_file)
 # re-encode wav file to have 16-bit PCM encoding
 PreProcessor.re_encode(wav_file)
 ```
+
+### Performance
+```
+These metrics are from Google Colab tests.
+These metrics do not take into account model download times.
+These metrics are done without quantization enabled.
+(quantization will make this even faster)
+
+metrics for faster-whisper "tiny" model:
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 64s
+
+
+metrics for faster-whisper "small" model:
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 95s
+
+
+metrics for faster-whisper "medium" model:
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 193s
+
+
+metrics for faster-whisper "large" model:
+    on gpu:
+        audio name: obama_zach.wav
+        duration: 6 min 36 s
+        diarization time: 24s
+        speaker recognition time: 10s
+        transcription time: 343s
+```
+
 
 This library uses following huggingface models:
 

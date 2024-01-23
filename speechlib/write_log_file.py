@@ -1,17 +1,18 @@
 import os
 from datetime import datetime
 
-def write_log_file(common_segments, log_folder):
+def write_log_file(common_segments, log_folder, file_name, language):
 
     if not os.path.exists(log_folder):
         os.makedirs(log_folder)
 
-    file_name = "output"
-    current_datetime = datetime.now().strftime("%Y-%m-%d")
-
     #---------------------log file part-------------------------
+        
+    current_time = datetime.now().strftime('%H%M%S')
 
-    log_file = log_folder + "/" + file_name + "_" + current_datetime + ".txt"
+    file_name = os.path.splitext(os.path.basename(file_name))[0]
+
+    log_file = log_folder + "/" + file_name + "_" + current_time + "_" + language + ".txt"
     
     lf=open(log_file,"wb")
 

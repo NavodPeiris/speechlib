@@ -4,13 +4,6 @@ These metrics are done without quantization enabled.
 (quantization will make this even faster)
 
 metrics for faster-whisper "tiny" model:
-    on cpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 
-        speaker recognition time: 
-        transcription time: 
-
     on gpu:
         audio name: obama_zach.wav
         duration: 6 min 36 s
@@ -20,13 +13,6 @@ metrics for faster-whisper "tiny" model:
 
 
 metrics for faster-whisper "small" model:
-    on cpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 
-        speaker recognition time: 
-        transcription time: 
-
     on gpu:
         audio name: obama_zach.wav
         duration: 6 min 36 s
@@ -36,13 +22,6 @@ metrics for faster-whisper "small" model:
 
 
 metrics for faster-whisper "medium" model:
-    on cpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 
-        speaker recognition time: 
-        transcription time: 
-
     on gpu:
         audio name: obama_zach.wav
         duration: 6 min 36 s
@@ -52,13 +31,6 @@ metrics for faster-whisper "medium" model:
 
 
 metrics for faster-whisper "large" model:
-    on cpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 
-        speaker recognition time: 
-        transcription time: 
-
     on gpu:
         audio name: obama_zach.wav
         duration: 6 min 36 s

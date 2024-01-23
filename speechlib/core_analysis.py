@@ -1,3 +1,4 @@
+import os
 from pyannote.audio import Pipeline
 import time
 from .hf_access import (ACCESS_TOKEN)
@@ -69,7 +70,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, qua
 
         speakers[speaker].append([start, end, speaker])
 
-    if voices_folder != None:
+    if voices_folder != None and voices_folder != "":
         identified = []
 
         start_time = int(time.time())
@@ -131,6 +132,6 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, qua
                         common_segments.append([start, end, segment[2], speaker])
 
     # writing log file
-    write_log_file(common_segments, log_folder)  
+    write_log_file(common_segments, log_folder, file_name, language)  
 
     return common_segments
