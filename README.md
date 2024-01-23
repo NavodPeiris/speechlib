@@ -103,19 +103,10 @@ text: transcribed text for speech during start and end
 speaker: speaker of the text 
 
 voices_folder structure:  
-```
-voices_folder    
-|---> person1      
-|        |---> sample1.wav   
-|        |---> sample2.wav     
-|                ...
-|
-|---> person2  
-|        |---> sample1.wav  
-|        |---> sample2.wav   
-|                ...
-|--> ...  
-```
+![voices_folder_structure](voices_folder_structure1.png)
+
+Transcription:
+![transcription](transcript.png)
 
 supported language codes:  
 
