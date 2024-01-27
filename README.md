@@ -14,6 +14,11 @@
     
 </p>
 
+### Run your IDE as administrator
+
+you will get following error if administrator permission is not there:
+
+**OSError: [WinError 1314] A required privilege is not held by the client**
 
 ### Requirements
 
