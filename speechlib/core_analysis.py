@@ -36,6 +36,8 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, qua
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
     else:
         device = torch.device("cpu")
 
