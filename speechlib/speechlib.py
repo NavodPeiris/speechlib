@@ -252,12 +252,12 @@ class PreProcessor:
 
     '''
 
-    def re_encode(file):
+    def re_encode(self, file):
         re_encode(file)
     
-    def convert_to_mono(file):
+    def convert_to_mono(self, file):
         convert_to_mono(file)
 
-    def convert_to_wav(file):
+    def convert_to_wav(self, file):
         path = convert_to_wav(file)
         return path
