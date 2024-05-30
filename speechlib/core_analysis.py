@@ -31,7 +31,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, qua
 
     speaker_tags = []
     
-    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
+    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",
                                     use_auth_token=ACCESS_TOKEN)
 
     if torch.cuda.is_available():
