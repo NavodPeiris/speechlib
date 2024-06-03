@@ -4,3 +4,4 @@ segments
 pretrained_models
 audio_cache
 __pycache__
+logs
