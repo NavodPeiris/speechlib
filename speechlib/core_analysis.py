@@ -1,7 +1,6 @@
 import os
 from pyannote.audio import Pipeline
 import time
-from .hf_access import (ACCESS_TOKEN)
 from .wav_segmenter import (wav_file_segmentation)
 import torch, torchaudio
 
@@ -14,7 +13,7 @@ from .convert_to_wav import (convert_to_wav)
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language, modelSize, quantization=False):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, whisper_type ,quantization=False):
 
     # <-------------------PreProcessing file-------------------------->
 
@@ -115,7 +114,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, qua
     print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, quantization)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, whisper_type, quantization)
         speakers[spk_tag] = segment_out
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)

@@ -5,7 +5,7 @@ from .convert_to_wav import (convert_to_wav)
 
 class Transcriptor:
 
-    def __init__(self, file, log_folder, language, modelSize, voices_folder=None, quantization=False):
+    def __init__(self, file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder=None, quantization=False):
         '''transcribe a wav file 
         
             arguments:
@@ -233,9 +233,14 @@ class Transcriptor:
         self.log_folder = log_folder
         self.modelSize = modelSize
         self.quantization = quantization
+        self.ACCESS_TOKEN = ACCESS_TOKEN
 
-    def transcribe(self):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.quantization)
+    def whisper(self):
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "whisper", self.quantization)
+        return res
+    
+    def faster_whisper(self):
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "faster-whisper", self.quantization)
         return res
 
 class PreProcessor:

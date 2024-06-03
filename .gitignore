@@ -2,3 +2,4 @@ venv
 build
 dist
 speechlib.egg-info
+.env
