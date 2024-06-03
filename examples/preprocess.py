@@ -1,10 +1,8 @@
 from speechlib import PreProcessor
 
 file = "obama1.mp3"
-
 #initialize
 prep = PreProcessor()
-
 # convert mp3 to wav
 wav_file = prep.convert_to_wav(file)   
 
