@@ -72,7 +72,7 @@ transcript will also indicate the timeframe in seconds where each speaker speaks
 ```
 from speechlib import Transcriptor
 
-file = "obama1.wav"  # your audio file
+file = "obama_zach.wav"  # your audio file
 voices_folder = "voices" # voices folder containing voice samples for recognition
 language = "en"          # language code
 log_folder = "logs"      # log folder for storing transcripts
@@ -99,13 +99,20 @@ end: ending time of speech in seconds
 text: transcribed text for speech during start and end  
 speaker: speaker of the text 
 
-#### voices_folder structure:  
-
-![voices_folder_structure](voices_folder_structure1.png)
-
-#### Transcription:  
-
-![transcription](transcript.png)
+#### voices folder structure:
+```
+voices_folder    
+|---> person1      
+|        |---> sample1.wav   
+|        |---> sample2.wav     
+|                ...
+|
+|---> person2  
+|        |---> sample1.wav  
+|        |---> sample2.wav   
+|                ...
+|--> ...  
+```
 
 supported language codes:  
 

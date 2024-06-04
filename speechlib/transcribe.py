@@ -32,9 +32,14 @@ def transcribe(file, language, model_size, whisper_type, quantization):
                 Exception("Language code not supported.\nThese are the supported languages:\n", model.supported_languages)
         else:
             try:
-                model = whisper.load_model(model_size)
-                result = model.transcribe(file, language=language)
-                res = result["text"]
+                if torch.cuda.is_available():
+                    model = whisper.load_model(model_size, device="cuda")
+                    result = model.transcribe(file, language=language, fp16=True)
+                    res = result["text"]
+                else:
+                    model = whisper.load_model(model_size, device="cpu")
+                    result = model.transcribe(file, language=language, fp16=False)
+                    res = result["text"]
 
                 return res
             except Exception as err:
