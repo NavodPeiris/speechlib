@@ -1,3 +1,9 @@
+### Run your IDE as administrator
+
+you will get following error if administrator permission is not there:
+
+**OSError: [WinError 1314] A required privilege is not held by the client**
+
 ### Requirements
 
 * Python 3.8 or greater
@@ -31,13 +37,13 @@ This library does speaker diarization, speaker recognition, and transcription on
 
 This library contains following audio preprocessing functions:
 
-1. convert mp3 to wav
+1. convert other audio formats to wav
 
 2. convert stereo wav file to mono
 
 3. re-encode the wav file to have 16-bit PCM encoding
 
-Transcriptor method takes 6 arguments. 
+Transcriptor method takes 7 arguments. 
 
 1. file to transcribe
 
@@ -47,9 +53,11 @@ Transcriptor method takes 6 arguments.
 
 4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
 
-5. voices_folder (contains speaker voice samples for speaker recognition)
+5. ACCESS_TOKEN: huggingface acccess token (also get permission to access `pyannote/speaker-diarization@2.1`)
 
-6. quantization: this determine whether to use int8 quantization or not. Quantization may speed up the process but lower the accuracy.
+6. voices_folder (contains speaker voice samples for speaker recognition)
+
+7. quantization: this determine whether to use int8 quantization or not. Quantization may speed up the process but lower the accuracy.
 
 voices_folder should contain subfolders named with speaker names. Each subfolder belongs to a speaker and it can contain many voice samples. This will be used for speaker recognition to identify the speaker.
 
@@ -64,39 +72,40 @@ transcript will also indicate the timeframe in seconds where each speaker speaks
 ```
 from speechlib import Transcriptor
 
-file = "obama_zach.wav"
-voices_folder = "voices"
-language = "en"
-log_folder = "logs"
-modelSize = "medium"
+file = "obama1.wav"  # your audio file
+voices_folder = "voices" # voices folder containing voice samples for recognition
+language = "en"          # language code
+log_folder = "logs"      # log folder for storing transcripts
+modelSize = "tiny"     # size of model to be used [tiny, small, medium, large-v1, large-v2, large-v3]
 quantization = False   # setting this 'True' may speed up the process but lower the accuracy
+ACCESS_TOKEN = "your huggingface access token" # get permission to access pyannote/speaker-diarization@2.1 on huggingface
 
-transcriptor = Transcriptor(file, log_folder, language, modelSize, voices_folder, quantization)
+# quantization only works on faster-whisper
+transcriptor = Transcriptor(file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder, quantization)
 
-res = transcriptor.transcribe()
+# use normal whisper
+res = transcriptor.whisper()
+
+# use faster-whisper (simply faster)
+res = transcriptor.faster_whisper()
 
 res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
 ```
+
+#### if you don't want speaker names: keep voices_folder as an empty string ""
 
 start: starting time of speech in seconds  
 end: ending time of speech in seconds  
 text: transcribed text for speech during start and end  
 speaker: speaker of the text 
 
-voices_folder structure:  
-```
-voices_folder    
-|---> person1      
-|        |---> sample1.wav   
-|        |---> sample2.wav     
-|                ...
-|
-|---> person2  
-|        |---> sample1.wav  
-|        |---> sample2.wav   
-|                ...
-|--> ...  
-```
+#### voices_folder structure:  
+
+![voices_folder_structure](voices_folder_structure1.png)
+
+#### Transcription:  
+
+![transcription](transcript.png)
 
 supported language codes:  
 
@@ -116,15 +125,16 @@ supported language names:
 from speechlib import PreProcessor
 
 file = "obama1.mp3"
-
+#initialize
+prep = PreProcessor()
 # convert mp3 to wav
-wav_file = PreProcessor.convert_to_wav(file)   
+wav_file = prep.convert_to_wav(file)   
 
 # convert wav file from stereo to mono
-PreProcessor.convert_to_mono(wav_file)
+prep.convert_to_mono(wav_file)
 
 # re-encode wav file to have 16-bit PCM encoding
-PreProcessor.re_encode(wav_file)
+prep.re_encode(wav_file)
 ```
 
 ### Performance
@@ -170,6 +180,9 @@ metrics for faster-whisper "large" model:
         transcription time: 343s
 ```
 
+#### why not using pyannote/speaker-diarization-3.1, speechbrain >= 1.0.0, faster-whisper >= 1.0.0:
+
+because older versions give more accurate transcriptions. this was tested.
 
 This library uses following huggingface models:
 
