@@ -1,6 +1,6 @@
 from speechlib import Transcriptor
 
-file = "obama1.wav"  # your audio file
+file = "obama_zach.wav"  # your audio file
 voices_folder = "voices" # voices folder containing voice samples for recognition
 language = "en"          # language code
 log_folder = "logs"      # log folder for storing transcripts
