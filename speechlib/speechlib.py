@@ -243,6 +243,14 @@ class Transcriptor:
         res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "faster-whisper", self.quantization)
         return res
 
+    def custom_whisper(self, custom_model_path):
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "custom", self.quantization, custom_model_path)
+        return res
+    
+    def huggingface_model(self, hf_model_id):
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "huggingface", self.quantization, None, hf_model_id)
+        return res
+
 class PreProcessor:
     '''
     class for preprocessing audio files.
