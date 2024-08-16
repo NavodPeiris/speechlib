@@ -1,6 +1,6 @@
 from speechlib import Transcriptor
 
-file = "obama_zach.wav"  # your audio file
+file = "obama1.wav"  # your audio file
 voices_folder = "voices" # voices folder containing voice samples for recognition
 language = "en"          # language code
 log_folder = "logs"      # log folder for storing transcripts
@@ -16,3 +16,9 @@ res = transcriptor.whisper()
 
 # use faster-whisper (simply faster)
 res = transcriptor.faster_whisper()
+
+# use a custom trained whisper model
+res = transcriptor.custom_whisper("D:/whisper_tiny_model/tiny.pt")
+
+# use a huggingface whisper model
+res = transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
