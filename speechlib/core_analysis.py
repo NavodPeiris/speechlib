@@ -13,7 +13,7 @@ from .convert_to_wav import (convert_to_wav)
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, whisper_type ,quantization=False):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, model_type, quantization=False, custom_model_path=None, hf_model_id=None):
 
     # <-------------------PreProcessing file-------------------------->
 
@@ -114,7 +114,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
     print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, whisper_type, quantization)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id)
         speakers[spk_tag] = segment_out
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
