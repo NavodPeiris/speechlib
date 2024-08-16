@@ -32,8 +32,7 @@ def wav_file_segmentation(file_name, segments, language, modelSize, model_type, 
             # return -> [[start time, end time, transcript], [start time, end time, transcript], ..]
             texts.append([segment[0], segment[1], trans])
         except Exception as err:
-            # to avoid transcription exceptions that occur when transcribing silent segments we have to pass
-            pass
+            print("ERROR while transcribing: ", err)
         # Delete the WAV file after processing
         os.remove(file)
 
