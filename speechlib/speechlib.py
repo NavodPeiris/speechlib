@@ -6,23 +6,26 @@ from .convert_to_wav import (convert_to_wav)
 class Transcriptor:
 
     def __init__(self, file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder=None, quantization=False):
-        '''transcribe a wav file 
+        '''
+        transcribe a wav file 
         
-            arguments:
+        arguments:
 
-            file: name of wav file with extension ex: file.wav
+        file: name of wav file with extension ex: file.wav
 
-            log_folder: name of folder where transcript will be stored
+        log_folder: name of folder where transcript will be stored
 
-            language: language of wav file
+        language: language of wav file
 
-            modelSize: tiny, small, medium, large, large-v1, large-v2, large-v3 (bigger model is more accurate but slow!!)
+        modelSize: tiny, small, medium, large, large-v1, large-v2, large-v3 (bigger model is more accurate but slow!!)
 
-            voices_folder: folder containing subfolders named after each speaker with speaker voice samples in them. This will be used for speaker recognition
+        ACCESS_TOKEN: huggingface access token
 
-            quantization: whether to use int8 quantization or not (default=False)
+        voices_folder: folder containing subfolders named after each speaker with speaker voice samples in them. This will be used for speaker recognition
 
-            see documentation: https://github.com/Navodplayer1/speechlib
+        quantization: whether to use int8 quantization or not (default=False)
+
+        see documentation: https://github.com/Navodplayer1/speechlib
         
             
         supported languages:  
