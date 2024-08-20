@@ -53,11 +53,11 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
             print("model fodler: ", model_folder)
             try:
                 if torch.cuda.is_available():
-                    model = whisper.load_model(custom_model_path, download_root=model_folder)
+                    model = whisper.load_model(custom_model_path, download_root=model_folder, device="cuda")
                     result = model.transcribe(file, language=language, fp16=True)
                     res = result["text"]
                 else:
-                    model = whisper.load_model(custom_model_path, download_root=model_folder)
+                    model = whisper.load_model(custom_model_path, download_root=model_folder, device="cpu")
                     result = model.transcribe(file, language=language, fp16=False)
                     res = result["text"]
 
@@ -66,9 +66,14 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
                 raise Exception(f"an error occured while transcribing: {err}")
         elif model_type == "huggingface":
             try:
-                pipe = pipeline("automatic-speech-recognition", model=hf_model_path)
-                result = pipe(file)
-                res = result['text']
+                if torch.cuda.is_available():
+                    pipe = pipeline("automatic-speech-recognition", model=hf_model_path, device="cuda")
+                    result = pipe(file)
+                    res = result['text']
+                else:
+                    pipe = pipeline("automatic-speech-recognition", model=hf_model_path, device="cpu")
+                    result = pipe(file)
+                    res = result['text']
                 return res
             except Exception as err:
                 raise Exception(f"an error occured while transcribing: {err}")
