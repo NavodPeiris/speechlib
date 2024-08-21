@@ -63,8 +63,8 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
                             speakerId = speaker.split(".")[0]  
                             if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
                                 person = speakerId
-                except:
-                    pass
+                except Exception as err:
+                    print("error occured while speaker recognition: ", err)
 
         Id_count[person] += 1
 
