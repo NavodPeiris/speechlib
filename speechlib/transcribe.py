@@ -86,8 +86,7 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
                 # You can set additional parameters for the transcription
                 config = aai.TranscriptionConfig(
                     speech_model=aai.SpeechModel.nano,
-                    speaker_labels=False,
-                    language_detection=True
+                    language_code=language
                 )
 
                 transcriber = aai.Transcriber(config=config)

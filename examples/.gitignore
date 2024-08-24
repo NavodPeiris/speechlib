@@ -5,3 +5,5 @@ pretrained_models
 audio_cache
 __pycache__
 logs
+greek_convo_short.mp3
+greek_convo_short.wav
