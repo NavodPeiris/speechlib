@@ -1,8 +1,8 @@
 from speechlib import Transcriptor
 
-file = "obama1.wav"  # your audio file
+file = "greek_convo_short.mp3"  # your audio file
 voices_folder = "" # voices folder containing voice samples for recognition
-language = "en"          # language code
+language = "el"          # language code
 log_folder = "logs"      # log folder for storing transcripts
 modelSize = "tiny"     # size of model to be used [tiny, small, medium, large-v1, large-v2, large-v3]
 quantization = False   # setting this 'True' may speed up the process but lower the accuracy
@@ -24,4 +24,4 @@ transcriptor = Transcriptor(file, log_folder, language, modelSize, ACCESS_TOKEN,
 #res = transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
 
 # use assembly ai model
-res = transcriptor.assemby_ai_model("f1d5ee4f7e7a4db4bba1ab4b0a5a1df3")
+res = transcriptor.assemby_ai_model("a114db239a5742f39172d0f2ac3d8cf0")
