@@ -4,8 +4,9 @@ from faster_whisper import WhisperModel
 import whisper
 import os
 from transformers import pipeline
+import assemblyai as aai
 
-def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path):
+def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
     res = ""
     if language in ["si", "Si"]:
         res = whisper_sinhala(file)
@@ -75,6 +76,29 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
                     result = pipe(file)
                     res = result['text']
                 return res
+            except Exception as err:
+                raise Exception(f"an error occured while transcribing: {err}")
+        elif model_type == "assemblyAI":
+            try:
+                # Replace with your API key
+                aai.settings.api_key = aai_api_key
+
+                # You can set additional parameters for the transcription
+                config = aai.TranscriptionConfig(
+                    speech_model=aai.SpeechModel.nano,
+                    speaker_labels=False,
+                    language_detection=True
+                )
+
+                transcriber = aai.Transcriber(config=config)
+                transcript = transcriber.transcribe(file)
+
+                if transcript.status == aai.TranscriptStatus.error:
+                    print(transcript.error)
+                    raise Exception(f"an error occured while transcribing: {transcript.error}")
+                else:
+                    res = transcript.text
+                    return res
             except Exception as err:
                 raise Exception(f"an error occured while transcribing: {err}")
         else:
