@@ -253,6 +253,10 @@ class Transcriptor:
     def huggingface_model(self, hf_model_id):
         res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "huggingface", self.quantization, None, hf_model_id)
         return res
+    
+    def assemby_ai_model(self, aai_api_key):
+        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "assemblyAI", self.quantization, None, None, aai_api_key)
+        return res
 
 class PreProcessor:
     '''
