@@ -24,7 +24,8 @@ def write_log_file(common_segments, log_folder, file_name, language):
         text = segment[2]
         speaker = segment[3]
         
-        entry += f"{speaker} ({start} : {end}) : {text}\n"
+        if text != "" and text != None:
+            entry += f"{speaker} ({start} : {end}) : {text}\n"
         
     lf.write(bytes(entry.encode('utf-8')))      
     lf.close()
