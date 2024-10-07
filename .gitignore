@@ -3,3 +3,6 @@ build
 dist
 speechlib.egg-info
 .env
+
+*.swp
+*.swo

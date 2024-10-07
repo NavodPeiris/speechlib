@@ -6,4 +6,4 @@ pyannote.audio>=3.1.1, <4.0.0
 speechbrain>=0.5.16, <1.0.0
 accelerate>=0.26.1, <1.0.0
 faster-whisper>=0.10.1, <1.0.0
-openai-whisper>=20231117, <2024*
+openai-whisper>=20231117, <20240927
