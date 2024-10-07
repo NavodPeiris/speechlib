@@ -69,7 +69,9 @@ Transcriptor method takes 7 arguments.
 
 4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
 
-5. ACCESS_TOKEN: huggingface acccess token (also get permission to access `pyannote/speaker-diarization@2.1`)
+5. ACCESS_TOKEN: huggingface acccess token
+    1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
+    2. Token requires permission for 'Read access to contents of all public gated repos you can access'
 
 6. voices_folder (contains speaker voice samples for speaker recognition)
 
