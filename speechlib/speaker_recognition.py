@@ -1,4 +1,4 @@
-from speechbrain.pretrained import SpeakerRecognition
+from speechbrain.inference import SpeakerRecognition
 import os
 from pydub import AudioSegment
 from collections import defaultdict

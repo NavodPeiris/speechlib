@@ -9,7 +9,7 @@ for publishing:
     pip install twine
 
 for install locally for testing:
-    pip install dist/speechlib-1.1.10-py3-none-any.whl
+    pip install dist/speechlib-1.1.11-py3-none-any.whl
 
 finally run:
     twine upload dist/*
