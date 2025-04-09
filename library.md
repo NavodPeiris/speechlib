@@ -196,13 +196,3 @@ metrics for faster-whisper "large" model:
         speaker recognition time: 10s
         transcription time: 343s
 ```
-
-#### why not using pyannote/speaker-diarization-3.1, speechbrain >= 1.0.0, faster-whisper >= 1.0.0:
-
-because older versions give more accurate transcriptions. this was tested.
-
-This library uses following huggingface models:
-
-#### https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb
-#### https://huggingface.co/Ransaka/whisper-tiny-sinhala-20k-8k-steps-v2
-#### https://huggingface.co/pyannote/speaker-diarization
