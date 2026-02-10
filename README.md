@@ -1,5 +1,6 @@
 # Recall.ai - Meeting Transcription API
-If you’re looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=speechlib), an API that works with Zoom, Google Meet, Microsoft Teams, and more. 
+
+If you’re looking for a transcription API for meetings, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=speechlib), an API that works with Zoom, Google Meet, Microsoft Teams, and more.
 Recall.ai diarizes by pulling the speaker data and separate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names.
 
 # Speechlib
@@ -19,7 +20,6 @@ Recall.ai diarizes by pulling the speaker data and separate audio streams from t
     
 </p>
 
-
 ### Run your IDE as administrator
 
 you will get following error if administrator permission is not there:
@@ -28,22 +28,23 @@ you will get following error if administrator permission is not there:
 
 ### Requirements
 
-* Python 3.8 or greater
+- Python 3.8 or greater
 
 ### GPU execution
 
-GPU execution needs CUDA 11.  
+GPU execution needs CUDA 11.
 
 GPU execution requires the following NVIDIA libraries to be installed:
 
-* [cuBLAS for CUDA 11](https://developer.nvidia.com/cublas)
-* [cuDNN 8 for CUDA 11](https://developer.nvidia.com/cudnn)
+- [cuBLAS for CUDA 11](https://developer.nvidia.com/cublas)
+- [cuDNN 8 for CUDA 11](https://developer.nvidia.com/cudnn)
 
 There are multiple ways to install these libraries. The recommended way is described in the official NVIDIA documentation, but we also suggest other installation methods below.
 
 ### Google Colab:
 
 on google colab run this to install CUDA dependencies:
+
 ```
 !apt install libcublas11
 ```
@@ -51,11 +52,34 @@ on google colab run this to install CUDA dependencies:
 You can see this example [notebook](https://colab.research.google.com/drive/1lpoWrHl5443LSnTG3vJQfTcg9oFiCQSz?usp=sharing)
 
 ### installation:
+
 ```
 pip install speechlib
 ```
 
-This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙ 
+### Dependencies:
+
+```
+dependencies = [
+    "accelerate>=1.12.0",
+    "assemblyai>=0.50.0",
+    "faster-whisper>=1.2.1",
+    "huggingface-hub==0.36.0",
+    "numpy==1.26.4",
+    "openai-whisper>=20250625",
+    "pyannote-audio==3.4.0",
+    "pydub>=0.25.1",
+    "speechbrain==1.0.3",
+    "torch==2.2.0",
+    "torchaudio==2.2.0",
+    "torchvision==0.17.0",
+    "transformers>=4.57.6",
+]
+```
+
+### Introduction
+
+This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙
 
 This library contains following audio preprocessing functions:
 
@@ -65,7 +89,7 @@ This library contains following audio preprocessing functions:
 
 3. re-encode the wav file to have 16-bit PCM encoding
 
-Transcriptor method takes 7 arguments. 
+Transcriptor method takes 7 arguments.
 
 1. file to transcribe
 
@@ -76,8 +100,8 @@ Transcriptor method takes 7 arguments.
 4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
 
 5. ACCESS_TOKEN: huggingface acccess token
-    1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
-    2. Token requires permission for 'Read access to contents of all public gated repos you can access'
+   1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
+   2. Token requires permission for 'Read access to contents of all public gated repos you can access'
 
 6. voices_folder (contains speaker voice samples for speaker recognition)
 
@@ -131,17 +155,17 @@ res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"
 start: starting time of speech in seconds  
 end: ending time of speech in seconds  
 text: transcribed text for speech during start and end  
-speaker: speaker of the text 
+speaker: speaker of the text
 
-#### voices_folder structure:  
+#### voices_folder structure:
 
 ![voices_folder_structure](voices_folder_structure1.png)
 
-#### Transcription:  
+#### Transcription:
 
 ![transcription](transcript.png)
 
-supported language codes:  
+supported language codes:
 
 ```
 "af", "am", "ar", "as", "az", "ba", "be", "bg", "bn", "bo", "br", "bs", "ca", "cs", "cy", "da", "de", "el", "en", "es", "et", "eu", "fa", "fi", "fo", "fr", "gl", "gu", "ha", "haw", "he", "hi", "hr", "ht", "hu", "hy", "id", "is","it", "ja", "jw", "ka", "kk", "km", "kn", "ko", "la", "lb", "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn","mr", "ms", "mt", "my", "ne", "nl", "nn", "no", "oc", "pa", "pl", "ps", "pt", "ro", "ru", "sa", "sd", "si", "sk","sl", "sn", "so", "sq", "sr", "su", "sv", "sw", "ta", "te", "tg", "th", "tk", "tl", "tr", "tt", "uk", "ur", "uz","vi", "yi", "yo", "zh", "yue"
@@ -162,7 +186,7 @@ file = "obama1.mp3"
 #initialize
 prep = PreProcessor()
 # convert mp3 to wav
-wav_file = prep.convert_to_wav(file)   
+wav_file = prep.convert_to_wav(file)
 
 # convert wav file from stereo to mono
 prep.convert_to_mono(wav_file)
@@ -172,6 +196,7 @@ prep.re_encode(wav_file)
 ```
 
 ### Performance
+
 ```
 These metrics are from Google Colab tests.
 These metrics do not take into account model download times.

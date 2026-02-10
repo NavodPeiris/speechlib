@@ -1,8 +1,10 @@
 venv
+.venv
 build
 dist
 speechlib.egg-info
 .env
+.python-version
 
 *.swp
 *.swo

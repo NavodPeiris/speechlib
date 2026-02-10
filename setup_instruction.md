@@ -1,19 +1,11 @@
-for building setup:
-    pip install setuptools
-    pip install wheel
+for building package:
 
-on root:
-    python setup.py sdist bdist_wheel
+- uv build
 
 for publishing:
-    pip install twine
+
+- uv publish --token "pypi token"
 
 for install locally for testing:
-    pip install dist/speechlib-1.1.12-py3-none-any.whl
 
-finally run:
-    twine upload dist/*
-
-    fill as follows:
-        username: __token__
-        password: {your token value}
+- uv pip install dist/speechlib-1.1.16-py3-none-any.whl

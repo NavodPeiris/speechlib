@@ -1,9 +1,0 @@
-transformers
-torch
-torchaudio
-pydub
-pyannote.audio
-speechbrain
-accelerate
-faster-whisper
-openai-whisper
