@@ -13,3 +13,5 @@ speechlib.egg-info
 # Override this by using 'git add -f'
 *.wav
 *.mp3
+!tests/fixtures/*.wav
+!tests/fixtures/*.mp3
