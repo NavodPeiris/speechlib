@@ -7,6 +7,8 @@ import torch, torchaudio
 from .speaker_recognition import (speaker_recognition)
 from .write_log_file import (write_log_file)
 
+from pathlib import Path
+from .audio_state import AudioState
 from .re_encode import (re_encode)
 from .convert_to_mono import (convert_to_mono)
 from .convert_to_wav import (convert_to_wav)
@@ -17,19 +19,15 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
 
     # <-------------------PreProcessing file-------------------------->
 
-    # check if file is in wav format, if not convert to wav
-    file_name = convert_to_wav(file_name)
-
-    # convert file to mono
-    convert_to_mono(file_name)
-
-    # re-encode file to 16-bit PCM encoding
-    re_encode(file_name)
+    state = AudioState(source_path=Path(file_name), working_path=Path(file_name))
+    state = convert_to_wav(state)
+    state = convert_to_mono(state)
+    state = re_encode(state)
 
     # <--------------------running analysis--------------------------->
 
     speaker_tags = []
-    
+
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
                                     use_auth_token=ACCESS_TOKEN)
 
@@ -42,7 +40,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
         device = torch.device("cpu")
 
     pipeline.to(device)
-    waveform, sample_rate = torchaudio.load(file_name)
+    waveform, sample_rate = torchaudio.load(str(state.working_path))
 
     start_time = int(time.time())
     print("running diarization...")
@@ -78,7 +76,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
         start_time = int(time.time())
         print("running speaker recognition...")
         for spk_tag, spk_segments in speakers.items():
-            spk_name = speaker_recognition(file_name, voices_folder, spk_segments, identified)
+            spk_name = speaker_recognition(str(state.working_path), voices_folder, spk_segments, identified)
             spk = spk_name
             identified.append(spk)
             speaker_map[spk_tag] = spk
@@ -114,7 +112,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
     print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key)
+        segment_out = wav_file_segmentation(str(state.working_path), spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key)
         speakers[spk_tag] = segment_out
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
@@ -134,6 +132,6 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
                         common_segments.append([start, end, segment[2], speaker])
 
     # writing log file
-    write_log_file(common_segments, log_folder, file_name, language)  
+    write_log_file(common_segments, log_folder, str(state.working_path), language)
 
     return common_segments
