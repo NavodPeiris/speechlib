@@ -68,3 +68,8 @@ htmlcov/
 *.m4a
 !tests/fixtures/*.wav
 !tests/fixtures/*.mp3
+
+# Model checkpoints
+*.ckpt
+*.pth
+*.pt
