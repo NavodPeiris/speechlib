@@ -13,14 +13,14 @@ from unittest.mock import MagicMock
 _heavy = [
     "pyannote",
     "pyannote.audio",
-    "torch",
-    "torchaudio",
     "whisper",
     "faster_whisper",
     "transformers",
     "speechbrain",
     "speechbrain.inference",
     "assemblyai",
+    "pydub",
+    "pydub.AudioSegment",
 ]
 
 for mod in _heavy:

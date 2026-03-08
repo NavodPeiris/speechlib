@@ -33,12 +33,9 @@ def state_16bit(wav_16bit):
     )
 
 
-def test_8bit_creates_new_16bit_file(wav_8bit):
-    state = AudioState(
-        source_path=wav_8bit, working_path=wav_8bit, is_wav=True, is_mono=True
-    )
-    result = re_encode(state)
-    assert result.working_path != wav_8bit
+def test_8bit_creates_new_16bit_file(state_8bit):
+    result = re_encode(state_8bit)
+    assert result.working_path != state_8bit.working_path
     assert result.working_path.exists()
 
 
@@ -59,13 +56,10 @@ def test_already_16bit_keeps_same_working_path(state_16bit):
     assert result.is_16bit is True
 
 
-def test_8bit_source_not_modified(wav_8bit):
-    original = wav_8bit.read_bytes()
-    state = AudioState(
-        source_path=wav_8bit, working_path=wav_8bit, is_wav=True, is_mono=True
-    )
-    re_encode(state)
-    assert wav_8bit.read_bytes() == original
+def test_8bit_source_not_modified(state_8bit):
+    original = state_8bit.source_path.read_bytes()
+    re_encode(state_8bit)
+    assert state_8bit.source_path.read_bytes() == original
 
 
 def test_returns_audio_state(state_16bit):
