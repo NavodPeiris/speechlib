@@ -73,3 +73,6 @@ htmlcov/
 *.ckpt
 *.pth
 *.pt
+
+# Pretrained models (downloaded)
+pretrained_models/
