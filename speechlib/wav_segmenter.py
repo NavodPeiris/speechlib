@@ -1,13 +1,20 @@
 import os
-from pydub import AudioSegment
-from .transcribe import (transcribe)
+from .audio_utils import slice_and_save
+from .transcribe import transcribe
 
-# segment according to speaker
-def wav_file_segmentation(file_name, segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
-    # Load the WAV file
-    audio = AudioSegment.from_file(file_name, format="wav")
+
+def wav_file_segmentation(
+    file_name,
+    segments,
+    language,
+    modelSize,
+    model_type,
+    quantization,
+    custom_model_path,
+    hf_model_path,
+    aai_api_key,
+):
     trans = ""
-
     texts = []
 
     folder_name = "segments"
@@ -18,22 +25,26 @@ def wav_file_segmentation(file_name, segments, language, modelSize, model_type, 
     i = 0
 
     for segment in segments:
-
-        start = segment[0] * 1000   # start time in miliseconds
-        end = segment[1] * 1000     # end time in miliseconds
-        clip = audio[start:end]
+        start_ms = segment[0] * 1000
+        end_ms = segment[1] * 1000
         i = i + 1
-        file = folder_name + "/" + "segment"+ str(i) + ".wav"
-        clip.export(file, format="wav")
+        file = folder_name + "/" + "segment" + str(i) + ".wav"
+        slice_and_save(file_name, start_ms, end_ms, file)
 
         try:
-            trans = transcribe(file, language, modelSize, model_type, quantization, custom_model_path, hf_model_path, aai_api_key)  
-            
-            # return -> [[start time, end time, transcript], [start time, end time, transcript], ..]
+            trans = transcribe(
+                file,
+                language,
+                modelSize,
+                model_type,
+                quantization,
+                custom_model_path,
+                hf_model_path,
+                aai_api_key,
+            )
             texts.append([segment[0], segment[1], trans])
         except Exception as err:
             print("ERROR while transcribing: ", err)
-        # Delete the WAV file after processing
         os.remove(file)
 
     return texts

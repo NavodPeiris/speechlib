@@ -19,8 +19,6 @@ _heavy = [
     "speechbrain",
     "speechbrain.inference",
     "assemblyai",
-    "pydub",
-    "pydub.AudioSegment",
 ]
 
 for mod in _heavy:

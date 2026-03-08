@@ -22,7 +22,6 @@ dependencies = [
     "openai-whisper>=20250625",
     "pyannote-audio==3.4.0",
     "pydantic>=2.0",
-    "pydub>=0.25.1",
     "speechbrain==1.0.3",
     "torch==2.2.0",
     "torchaudio==2.2.0",
