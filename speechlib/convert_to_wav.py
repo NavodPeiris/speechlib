@@ -1,22 +1,13 @@
 from pydub import AudioSegment
-import os
+from .audio_state import AudioState
 
-def convert_to_wav(input_file):
-    # Load the MP3 file using pydub
-    # Check if the file is already in WAV format
-    if input_file.lower().endswith(".wav"):
-        print(f"{input_file} is already in WAV format.")
-        return input_file
-    
-    audio = AudioSegment.from_file(input_file)
 
-    # Create the output WAV file path
-    wav_path = os.path.splitext(input_file)[0] + ".wav"
+def convert_to_wav(state: AudioState) -> AudioState:
+    if state.working_path.suffix.lower() == ".wav":
+        return state.model_copy(update={"is_wav": True})
 
-    # Export the audio to WAV
-    audio.export(wav_path, format="wav")
+    wav_path = state.working_path.with_suffix(".wav")
+    audio = AudioSegment.from_file(str(state.working_path))
+    audio.export(str(wav_path), format="wav")
 
-    print(f"{input_file} has been converted to WAV format.")
-
-    return wav_path
-
+    return state.model_copy(update={"working_path": wav_path, "is_wav": True})
