@@ -19,7 +19,6 @@ _heavy = [
     "assemblyai",
     "pydub",
     "pydub.AudioSegment",
-    "numpy",
 ]
 
 for mod in _heavy:
