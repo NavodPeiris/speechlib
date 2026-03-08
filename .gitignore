@@ -1,17 +1,70 @@
+# Python
 venv
 .venv
-build
-dist
-speechlib.egg-info
+env
 .env
+*.egg-info
+dist
+build
 .python-version
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Environments
+*.log
+
+# IDE
 *.swp
 *.swo
+.idea/
+.vscode/
+*.iml
 
-# By default do not include these files for version control
-# Override this by using 'git add -f'
+# Type checking
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# Audio files (except fixtures)
 *.wav
 *.mp3
+*.ogg
+*.flac
+*.m4a
 !tests/fixtures/*.wav
 !tests/fixtures/*.mp3
