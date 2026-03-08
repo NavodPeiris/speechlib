@@ -1,22 +1,28 @@
 """
 Unit tests: convert_to_wav con AudioState (Slice 2)
 """
-import wave
-import struct
+
+import shutil
 from pathlib import Path
-import pytest
 from speechlib.audio_state import AudioState
 from speechlib.convert_to_wav import convert_to_wav
+from conftest import make_wav
 
 
-def make_wav(path: Path, channels=1, sampwidth=2, framerate=16000, n_frames=160):
-    with wave.open(str(path), 'wb') as f:
-        f.setnchannels(channels)
-        f.setsampwidth(sampwidth)
-        f.setframerate(framerate)
-        data = struct.pack(f"<{n_frames * channels}h", *([0] * n_frames * channels))
-        f.writeframes(data)
-    return path
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_mp3_input_converts_to_wav(tmp_path):
+    mp3 = shutil.copy(FIXTURES / "sample.mp3", tmp_path / "audio.mp3")
+    mp3 = Path(mp3)
+    original = mp3.read_bytes()
+    state = AudioState(source_path=mp3, working_path=mp3)
+    result = convert_to_wav(state)
+    assert result.working_path.suffix == ".wav"
+    assert result.working_path != mp3
+    assert result.working_path.exists()
+    assert result.is_wav is True
+    assert mp3.read_bytes() == original
 
 
 def test_wav_input_sets_is_wav_true(tmp_path):
