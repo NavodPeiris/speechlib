@@ -1,25 +1,81 @@
-from speechbrain.inference import SpeakerRecognition
 import os
-from collections import defaultdict
+import numpy as np
+from pyannote.audio import Model, Inference
+from scipy.spatial.distance import cosine
 import torch
 from .audio_utils import slice_and_save
 
-if torch.cuda.is_available():
-    verification = SpeakerRecognition.from_hparams(
-        run_opts={"device": "cuda"},
-        source="speechbrain/spkrec-ecapa-voxceleb",
-        savedir="pretrained_models/spkrec-ecapa-voxceleb",
-    )
-else:
-    verification = SpeakerRecognition.from_hparams(
-        run_opts={"device": "cpu"},
-        source="speechbrain/spkrec-ecapa-voxceleb",
-        savedir="pretrained_models/spkrec-ecapa-voxceleb",
-    )
+_embedding_model = None
+_inference = None
+
+
+def _get_inference():
+    global _embedding_model, _inference
+    if _embedding_model is None:
+        _embedding_model = Model.from_pretrained(
+            "pyannote/embedding", use_auth_token=os.environ.get("HF_TOKEN", None)
+        )
+        if torch.cuda.is_available():
+            _embedding_model.to(torch.device("cuda"))
+        _inference = Inference(_embedding_model, window="whole")
+    return _inference
+
+
+def get_embedding(audio_path: str) -> np.ndarray:
+    inference = _get_inference()
+    embedding = inference(audio_path)
+    return embedding
+
+
+def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
+    emb1 = np.asarray(emb1).flatten()
+    emb2 = np.asarray(emb2).flatten()
+    return 1.0 - cosine(emb1, emb2)
+
+
+def find_best_speaker(
+    test_embedding: np.ndarray, speaker_embeddings: dict[str, np.ndarray]
+) -> str:
+    best_speaker = "unknown"
+    best_score = -1.0
+
+    for speaker, emb in speaker_embeddings.items():
+        score = cosine_similarity(test_embedding, emb)
+        if score > best_score:
+            best_score = score
+            best_speaker = speaker
+
+    return best_speaker
 
 
 def speaker_recognition(file_name, voices_folder, segments, wildcards):
+    inference = _get_inference()
+
     speakers = os.listdir(voices_folder)
+
+    speaker_embeddings = {}
+
+    for speaker in speakers:
+        speaker_path = os.path.join(voices_folder, speaker)
+        if not os.path.isdir(speaker_path):
+            continue
+
+        voice_files = os.listdir(speaker_path)
+        embeddings = []
+
+        for voice_file in voice_files:
+            voice_path = os.path.join(speaker_path, voice_file)
+            try:
+                emb = inference(voice_path)
+                embeddings.append(emb)
+            except Exception as e:
+                print(f"Error extracting embedding from {voice_path}: {e}")
+
+        if embeddings:
+            avg_emb = np.mean(embeddings, axis=0)
+            speaker_embeddings[speaker] = avg_emb
+
+    from collections import defaultdict
 
     Id_count = defaultdict(int)
 
@@ -47,38 +103,27 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
         )
         slice_and_save(file_name, start_ms, end_ms, file)
 
-        max_score = 0
-        person = "unknown"
+        try:
+            test_emb = inference(file)
+        except Exception as e:
+            print(f"Error extracting embedding from segment: {e}")
+            os.remove(file)
+            continue
 
-        for speaker in speakers:
-            voices = os.listdir(voices_folder + "/" + speaker)
+        best_speaker = find_best_speaker(test_emb, speaker_embeddings)
 
-            for voice in voices:
-                voice_file = voices_folder + "/" + speaker + "/" + voice
-
-                try:
-                    score, prediction = verification.verify_files(voice_file, file)
-                    prediction = prediction[0].item()
-                    score = score[0].item()
-
-                    if prediction == True:
-                        if score >= max_score:
-                            max_score = score
-                            speakerId = speaker.split(".")[0]
-                            if speakerId not in wildcards:
-                                person = speakerId
-                except Exception as err:
-                    print("error occured while speaker recognition: ", err)
-
-        Id_count[person] += 1
+        if best_speaker != "unknown":
+            speakerId = best_speaker.split(".")[0]
+            if speakerId not in wildcards:
+                Id_count[speakerId] += 1
 
         os.remove(file)
 
-        current_pred = max(Id_count, key=Id_count.get)
+        current_pred = max(Id_count, key=Id_count.get) if Id_count else "unknown"
 
         duration += end_ms - start_ms
         if duration >= limit and current_pred != "unknown":
             break
 
-    most_common_Id = max(Id_count, key=Id_count.get)
+    most_common_Id = max(Id_count, key=Id_count.get) if Id_count else "unknown"
     return most_common_Id
