@@ -129,6 +129,43 @@ res = transcriptor.whisper()
 
 ---
 
+## ¿Pueden los archivos de examples/ servir como fixtures de tests?
+
+### Qué necesitan los tests actuales
+
+| Test | Propiedad requerida | Fuente actual |
+|---|---|---|
+| `test_convert_to_wav` — WAV input | cualquier WAV | `make_wav` sintético |
+| `test_convert_to_wav` — MP3 input | MP3 real | `tests/fixtures/sample.mp3` (1.3KB) |
+| `test_convert_to_mono` — stereo | 2 canales | `make_wav` sintético |
+| `test_convert_to_mono` — mono | 1 canal | `make_wav` sintético |
+| `test_re_encode` — 8-bit | sampwidth=1 | `make_wav` sintético |
+| `test_re_encode` — 16-bit | sampwidth=2 | `make_wav` sintético |
+| `test_acceptance` | estéreo 8-bit | `make_wav` sintético |
+
+### Evaluación de los archivos de examples/
+
+| Archivo | Propiedades | ¿Útil como fixture? |
+|---|---|---|
+| `obama1.mp3` | MP3 real, 346KB, 14s | Sí para MP3 test, pero 22x más grande que el fixture actual (1.3KB) |
+| `obama1.wav` | mono, 16-bit, 48kHz, 14s, 1.3MB | Podría reemplazar `make_wav` en tests 16-bit, pero lento (14s de audio) |
+| `voices/obama/obama1.wav` | stereo, 16-bit, 14s | Podría reemplazar `make_wav` en tests estéreo, mismo problema de tamaño |
+| `voices/zach/zach1.wav` | stereo, 16-bit, 9.5s | Ídem |
+| ninguno | 8-bit (sampwidth=1) | No existe en examples — `make_wav` es irremplazable aquí |
+
+### Conclusión
+
+**No conviene usar los archivos de examples/ como fixtures.** Razones:
+
+1. **Tamaño** — `sample.mp3` sintético pesa 1.3KB vs 346KB de `obama1.mp3`. Los tests procesarían 14s de audio real innecesariamente.
+2. **8-bit ausente** — ningún archivo de examples es 8-bit, `make_wav` es necesario de todas formas.
+3. **Velocidad** — `make_wav` genera 0.1s de audio sintético. Los examples tienen 6-14s de audio real, lo que ralentiza los tests sin agregar valor de cobertura.
+4. **Acoplamiento** — ligar fixtures a archivos de examples une dos concerns distintos.
+
+Los fixtures sintéticos actuales son la solución correcta. Los archivos de examples sirven para demos y desarrollo manual, no para tests automatizados.
+
+---
+
 ## Summary of gaps in examples
 
 | Gap | File | Impact |
