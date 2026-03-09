@@ -64,15 +64,16 @@ dependencies = [
     "accelerate>=1.12.0",
     "assemblyai>=0.50.0",
     "faster-whisper>=1.2.1",
-    "huggingface-hub==0.36.0",
-    "numpy==1.26.4",
+    "huggingface-hub>=0.36.0",
+    "numpy>=1.26.4",
+    "omegaconf>=2.3.0",
     "openai-whisper>=20250625",
-    "pyannote-audio==3.4.0",
-    "pydub>=0.25.1",
-    "speechbrain==1.0.3",
-    "torch==2.2.0",
-    "torchaudio==2.2.0",
-    "torchvision==0.17.0",
+    "pyannote-audio==4.0.4",
+    "pydantic>=2.0",
+    "scipy>=1.11.0",
+    "torch>=2.8.0",
+    "torchaudio>=2.8.0",
+    "torchvision>=0.23.0",
     "transformers>=4.57.6",
 ]
 ```
@@ -100,8 +101,8 @@ Transcriptor method takes 7 arguments.
 4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
 
 5. ACCESS_TOKEN: huggingface acccess token
-   1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
-   2. Token requires permission for 'Read access to contents of all public gated repos you can access'
+    1. Permission to access `pyannote/speaker-diarization-community-1` and `pyannote/embedding`
+    2. Token requires permission for 'Read access to contents of all public gated repos you can access'
 
 6. voices_folder (contains speaker voice samples for speaker recognition)
 
@@ -127,7 +128,7 @@ language = "en"          # language code
 log_folder = "logs"      # log folder for storing transcripts
 modelSize = "tiny"     # size of model to be used [tiny, small, medium, large-v1, large-v2, large-v3]
 quantization = False   # setting this 'True' may speed up the process but lower the accuracy
-ACCESS_TOKEN = "huggingface api key" # get permission to access pyannote/speaker-diarization@2.1 on huggingface
+ACCESS_TOKEN = "huggingface api key" # get permission to access pyannote/speaker-diarization-community-1 on huggingface
 
 # quantization only works on faster-whisper
 transcriptor = Transcriptor(file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder, quantization)
@@ -189,10 +190,12 @@ prep = PreProcessor()
 wav_file = prep.convert_to_wav(file)
 
 # convert wav file from stereo to mono
-prep.convert_to_mono(wav_file)
+mono_file = prep.convert_to_mono(wav_file)
 
 # re-encode wav file to have 16-bit PCM encoding
-prep.re_encode(wav_file)
+enc_file = prep.re_encode(mono_file)
+
+print(f"Final processed file: {enc_file}")
 ```
 
 ### Performance

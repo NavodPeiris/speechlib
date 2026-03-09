@@ -1,7 +1,7 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.1
-**Updated:** 2026-03-08
+**Version:** 2.2
+**Updated:** 2026-03-09
 
 ---
 
@@ -27,7 +27,7 @@ User API
 core_analysis()  [orchestrator]
   ├── Preprocessing      (AudioState pipeline)
   ├── Diarization        (Pyannote)
-  ├── Speaker Recognition (optional, SpeechBrain)
+  ├── Speaker Recognition (optional, Pyannote Embedding)
   ├── Segmentation & Transcription
   └── Write Log File
 
@@ -37,7 +37,7 @@ Modules
   ├── convert_to_mono.py     stereo → mono     (wave + numpy)
   ├── re_encode.py           8-bit → 16-bit PCM (wave)
   ├── wav_segmenter.py       slice + transcribe per segment (pydub)
-  ├── speaker_recognition.py ECAPA-TDNN speaker matching (pydub + SpeechBrain)
+  ├── speaker_recognition.py  pyannote embedding + cosine similarity
   ├── transcribe.py          multi-backend transcription
   ├── whisper_sinhala.py     Sinhala-specific HF pipeline
   └── write_log_file.py      transcript → .txt
@@ -117,7 +117,7 @@ Input: audio file (any format)
     │
     ▼ Speaker Recognition — optional
     │   Input:  segments + voices_folder
-    │   Model:  speechbrain/spkrec-ecapa-voxceleb (downloaded to pretrained_models/)
+    │   Model:  pyannote/embedding (downloaded to cache)
     │   Output: {"SPEAKER_00": "john_doe", ...}
     │
     ▼ Segmentation & Transcription
@@ -173,7 +173,7 @@ Log file:
 |---|---|---|
 | `segments/segment_N.wav` | `wav_segmenter.py` | `wav_segmenter.py` (after transcription) |
 | `temp/{name}_segmentN.wav` | `speaker_recognition.py` | `speaker_recognition.py` (after scoring) |
-| `pretrained_models/spkrec-ecapa-voxceleb/` | SpeechBrain at import | never — cached model weights |
+| Cache | Pyannote models at import | never — cached model weights |
 
 ---
 
@@ -225,13 +225,13 @@ state = my_step(state)
 | Library | Use |
 |---|---|
 | `pydantic` | AudioState model |
-| `torchaudio` | format conversion, waveform loading |
+| `torchaudio` / `torchcodec` | format conversion, waveform loading |
 | `torch` | device management, tensor ops |
 | `wave` | WAV read/write (mono conversion, re-encoding) |
 | `numpy` | stereo→mono mix-down |
 | `pydub` | audio slicing in segmentation and speaker recognition (*pending removal*) |
-| `pyannote.audio` | speaker diarization |
+| `pyannote.audio` | speaker diarization and embedding extraction |
 | `whisper` / `faster_whisper` | transcription |
 | `transformers` | HuggingFace ASR pipeline |
-| `speechbrain` | speaker verification embeddings (ECAPA-TDNN) |
+| `scipy` | cosine similarity for speaker matching |
 | `assemblyai` | cloud transcription API |
