@@ -74,7 +74,12 @@ def core_analysis(
     # create a dictionary of SPEAKER_XX to real name mappings
     speaker_map = {}
 
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    annotation = (
+        diarization.speaker_diarization
+        if hasattr(diarization, "speaker_diarization")
+        else diarization
+    )
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
         start = round(turn.start, 1)
         end = round(turn.end, 1)
         common.append([start, end, speaker])
