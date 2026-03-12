@@ -1,7 +1,7 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.2
-**Updated:** 2026-03-09
+**Version:** 2.3
+**Updated:** 2026-03-11
 
 ---
 
@@ -33,10 +33,11 @@ core_analysis()  [orchestrator]
 
 Modules
   ├── audio_state.py         AudioState — pipeline state carrier
+  ├── audio_utils.py         slice_and_save — torchaudio-based audio slicing
   ├── convert_to_wav.py      any format → WAV  (torchaudio)
   ├── convert_to_mono.py     stereo → mono     (wave + numpy)
   ├── re_encode.py           8-bit → 16-bit PCM (wave)
-  ├── wav_segmenter.py       slice + transcribe per segment (pydub)
+  ├── wav_segmenter.py       slice + transcribe per segment (torchaudio)
   ├── speaker_recognition.py  pyannote embedding + cosine similarity
   ├── transcribe.py          multi-backend transcription
   ├── whisper_sinhala.py     Sinhala-specific HF pipeline
@@ -50,7 +51,9 @@ Modules
 Each step receives and returns an `AudioState`. The **source file is never modified**.
 
 ```python
-class AudioState(BaseModel, frozen=True):
+class AudioState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     source_path: Path    # original — immutable
     working_path: Path   # current processed file
     is_wav:   bool = False
@@ -74,8 +77,7 @@ AudioState(working="meeting_mono.wav",       is_wav=True, is_mono=True)
     ▼ re_encode()             wave
 AudioState(working="meeting_mono_16bit.wav", is_wav=True, is_mono=True, is_16bit=True)
     │
-    ▼
-torchaudio.load(state.working_path)
+    ▼ pipeline(str(state.working_path))   ← used directly by diarization
 ```
 
 ### Step behavior
@@ -97,7 +99,8 @@ state = convert_to_wav(state)
 state = convert_to_mono(state)
 state = re_encode(state)
 
-waveform, sample_rate = torchaudio.load(str(state.working_path))
+# state.working_path is passed directly as a string path to the diarization pipeline
+diarization = pipeline(str(state.working_path))
 ```
 
 ---
@@ -111,9 +114,12 @@ Input: audio file (any format)
     │   convert_to_wav → convert_to_mono → re_encode
     │   Result: WAV, mono, 16-bit PCM
     │
-    ▼ Diarization — Pyannote
-    │   Input:  state.working_path
+    ▼ Diarization — Pyannote 4.x
+    │   Input:  state.working_path (as string path)
     │   Output: [[start, end, "SPEAKER_00"], ...]
+    │   Note:   pyannote 4.x may return a DiarizeOutput object;
+    │           core_analysis reads .speaker_diarization if present,
+    │           else uses the object directly (backwards-compat shim)
     │
     ▼ Speaker Recognition — optional
     │   Input:  segments + voices_folder
@@ -122,7 +128,7 @@ Input: audio file (any format)
     │
     ▼ Segmentation & Transcription
     │   For each speaker's segments:
-    │     pydub slice → temp WAV → transcribe() → delete temp
+    │     audio_utils.slice_and_save (torchaudio) → temp WAV → transcribe() → delete temp
     │   Output: [[start, end, transcript], ...]
     │
     ▼ Write Log File
@@ -215,8 +221,7 @@ state = my_step(state)
 
 | Issue | Plan |
 |---|---|
-| `pydub` uses `audioop` (removed Python 3.13) | See `devdocs/remove_pydub.md` |
-| Speaker recognition model loaded at import time (module level) | Deferred to future refactor |
+| `transcribe.py`, `write_log_file.py`, `whisper_sinhala.py` have no unit tests | Add mocked unit tests per TDD methodology |
 
 ---
 
@@ -224,13 +229,12 @@ state = my_step(state)
 
 | Library | Use |
 |---|---|
-| `pydantic` | AudioState model |
-| `torchaudio` / `torchcodec` | format conversion, waveform loading |
+| `pydantic` | AudioState model (v2, ConfigDict) |
+| `torchaudio` | format conversion, waveform loading, audio slicing |
 | `torch` | device management, tensor ops |
 | `wave` | WAV read/write (mono conversion, re-encoding) |
 | `numpy` | stereo→mono mix-down |
-| `pydub` | audio slicing in segmentation and speaker recognition (*pending removal*) |
-| `pyannote.audio` | speaker diarization and embedding extraction |
+| `pyannote.audio` | speaker diarization (pyannote 4.x) and embedding extraction |
 | `whisper` / `faster_whisper` | transcription |
 | `transformers` | HuggingFace ASR pipeline |
 | `scipy` | cosine similarity for speaker matching |
