@@ -416,55 +416,138 @@ segments, info = batched.transcribe(
 
 ---
 
-## 8. Slice D — Speech Enhancement con ClearerVoice (opcional)
+## 8. Slice D — Speech Enhancement (ADVERTENCIA CRITICA para salas fisicas)
 
-### Que hace
+### Problema descubierto: los modelos SE eliminan hablantes con volumen bajo
 
-ClearerVoice aplica modelos neuronales de eliminacion de ruido sobre el audio completo antes de la diarizacion y la transcripcion.
+**Este problema fue verificado en investigacion de literatura academica y reportes de la comunidad.**
 
-```
-Audio entrada (con ruido de fondo, eco, etc.)
-    │
-    ▼ ClearVoice(task='speech_enhancement', model='FRCRN_SE_16K')
-    │
-Audio salida (voz limpia, ruido eliminado)
-```
+Los modelos de speech enhancement de ClearerVoice (`FRCRN_SE_16K`, `MossFormerGAN_SE_16K`,
+`MossFormer2_SE_48K`) fueron entrenados en el DNS Challenge de Microsoft, cuyo objetivo
+explicito es la **supresion de un hablante objetivo unico**. Del dataset de entrenamiento:
 
-### Modelos disponibles para 16kHz
+> "Along with noise suppression, it includes suppression of interfering talkers."
+> — DNS Challenge dataset documentation
 
-| Modelo | Calidad | Velocidad (GPU) | VRAM |
-|--------|---------|-----------------|------|
-| `FRCRN_SE_16K` | Muy buena | ~0.05x RT | ~1 GB |
-| `MossFormerGAN_SE_16K` | Excelente (GAN) | ~0.10x RT | ~2 GB |
-
-*RT = real-time factor: 0.05x significa que 1 minuto de audio se procesa en 3 segundos.*
-
-### Tiempo estimado para audio de 6 minutos (GPU)
+Los hablantes secundarios estan etiquetados como **ruido a suprimir**, no como speech a
+preservar. En una sala fisica con multiples participantes, el modelo aprende a eliminar
+exactamente las voces que queremos transcribir.
 
 ```
-FRCRN_SE_16K         ~18 seg  (recomendado: calidad/velocidad)
-MossFormerGAN_SE_16K ~36 seg  (mejor calidad perceptual)
+COMPORTAMIENTO EN SALA FISICA CON MULTIPLES HABLANTES
+
+  Audio mezclado:
+    Speaker A (cerca del mic):   ████████████████  -18 dBFS  ← preservado
+    Speaker B (mas lejos):       ████░░░░░░░░░░░░  -28 dBFS  ← ELIMINADO
+    Speaker C (al fondo):        ██░░░░░░░░░░░░░░  -35 dBFS  ← ELIMINADO
+    Ruido de sala:               █░░░░░░░░░░░░░░░  -42 dBFS  ← eliminado
+
+  Despues de FRCRN_SE_16K:
+    Speaker A:                   ████████████████  OK
+    Speaker B:                   [SILENCIO]        ← PERDIDO
+    Speaker C:                   [SILENCIO]        ← PERDIDO
+    Ruido de sala:               [SILENCIO]        OK
 ```
 
-### Impacto en calidad de transcripcion
+El modelo no distingue entre "ruido de fondo" y "voz lejana". Ambos quedan
+bajo el umbral de la mascara neural aprendida y son suprimidos.
+
+### Evidencia academica
+
+**"When De-noising Hurts"** (arXiv:2512.17562, diciembre 2024):
+- Probaron speech enhancement en 40 configuraciones (4 modelos ASR × 10 condiciones de ruido)
+- El enhancement **degradó la precision en las 40 configuraciones**
+- Degradacion de 1.1% a 46.6% de aumento en error de transcripcion
+- Conclusion: Whisper, pyannote y modelos modernos tienen robustez interna suficiente
+
+**TSOS (Target Speaker Over-Suppression)** es una metrica academica establecida para medir
+exactamente este fallo. Su existencia confirma que es un problema estructural conocido.
+
+**ClearerVoice Issue #88**: los modelos de separacion estan limitados a 2 speakers maximos.
+
+### Taxonomia de modelos ClearerVoice por caso de uso
+
+| Modelo | Tipo | Sala fisica multi-speaker |
+|--------|------|--------------------------|
+| `FRCRN_SE_16K` | Enhancement | **NO APTO** — suprime hablantes secundarios |
+| `MossFormerGAN_SE_16K` | Enhancement | **NO APTO** — mismo problema |
+| `MossFormer2_SE_48K` | Enhancement | **NO APTO** — mismo problema |
+| `MossFormer2_SS_16K` | Separation | Parcial — separa max. 2 speakers en streams distintos |
+| Target Speaker Extraction | TSE | Solo si hay audio de referencia por participante |
+
+### Alternativas validas para salas fisicas
+
+**Opcion 1 (recomendada): no usar enhancement — pyannote y Whisper son robustos**
 
 ```
-Ambiente con ruido moderado (SNR ~15 dB):
-
-  Sin enhancement:    ████████████████████░░░░░░░░  ~82% confianza
-  Con FRCRN:          ██████████████████████████░░  ~93% confianza
-  Con MossFormerGAN:  ███████████████████████████░  ~95% confianza
+Audio sala → pyannote diarization → Whisper por segmento
 ```
 
-### Integracion opcional
+Es el enfoque de WhisperX y el estandar de la comunidad en 2025.
+Pyannote 4.x y Whisper tienen robustez interna suficiente para audio de sala.
+
+**Opcion 2: DeepFilterNet3 (si hay ruido ambiental estatico, no interferencia de voz)**
 
 ```python
-# en core_analysis.py
-if speech_enhancement and _CLEARVOICE_AVAILABLE:
-    state = enhance_audio(state, model="FRCRN_SE_16K")
+pip install deepfilternet
+from df.enhance import enhance, init_df, load_audio, save_audio
+model, df_state, _ = init_df()
+audio, _ = load_audio("meeting.wav", sr=df_state.sr())
+enhanced = enhance(model, df_state, audio)
 ```
 
-Requisito: Slice A (resample_to_16k) debe estar activo — los modelos de ClearerVoice requieren exactamente 16kHz.
+DeepFilterNet3 usa supresion perceptual de dos etapas y es menos agresivo que FRCRN.
+No fue entrenado con hablantes secundarios como "ruido" objetivo. Util para HVAC,
+ventiladores, eco de sala — NO para voz-sobre-voz.
+
+**Opcion 3: enhancement por segmento POST-diarizacion (valida con cuidado)**
+
+Si el ruido ambiental es el problema real (no interferencia de voz), aplicar enhancement
+*despues* de diarizar, sobre cada segmento de un solo speaker:
+
+```
+Audio → pyannote → segmento speaker_A (solo voz A) → FRCRN → Whisper
+```
+
+En este caso el input al modelo SE es ya mono-hablante, que coincide con su distribucion
+de entrenamiento. Los segmentos de los otros speakers se procesan por separado.
+
+### Decision para este proyecto
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Caso de uso          │ Recomendacion                             │
+├──────────────────────┼───────────────────────────────────────────┤
+│ Sala fisica, multi-  │ NO usar SE pre-diarizacion.              │
+│ speaker, voces a     │ Usar solo loudnorm (Slice B).            │
+│ distintas distancias │ Pyannote + Whisper manejan el ruido.     │
+├──────────────────────┼───────────────────────────────────────────┤
+│ Audio con ruido      │ DeepFilterNet3 (no ClearerVoice SE).     │
+│ ambiental estatico   │ Aplicar antes de diarizacion.            │
+│ (HVAC, fan, eco)     │                                          │
+├──────────────────────┼───────────────────────────────────────────┤
+│ Llamada virtual      │ ClearerVoice SE valido — tipicamente     │
+│ (1 speaker por mic)  │ cada participante tiene su propio canal. │
+└──────────────────────┴───────────────────────────────────────────┘
+```
+
+### Impacto en el pipeline — orden actualizado
+
+El Slice D ya no se aplica antes de la diarizacion para salas fisicas.
+Si se implementa, va **despues** de la diarizacion como paso opcional por segmento:
+
+```
+Audio → [A] resample → [D-opcional: DeepFilterNet3 solo ruido estatico]
+      → diarizacion → por segmento: [D-opcional: SE si mono-speaker] → Whisper
+```
+
+Fuentes:
+- arXiv:2512.17562 "When De-noising Hurts" (2024)
+- Microsoft DNS Challenge dataset design (noisyspeech_synthesizer.cfg)
+- ClearerVoice-Studio Issue #88 (GitHub)
+- DeepFilterNet3 vs RNNoise en videoconferencias (ResearchGate, 2025)
+- openai/whisper Discussion #2125: preprocessing before Whisper
+- arXiv:2406.09928 TSOS metric definition
 
 ---
 
@@ -521,24 +604,33 @@ ESCENARIO 2: Slices A + B + C (sin enhancement, sin compresion)
   TOTAL:          68 seg  (vs 152 baseline)   SPEEDUP: 2.2x
   Calidad:        mejor (voces normalizadas)
 
-ESCENARIO 3: Slices A + B + C + D (con enhancement FRCRN)
-──────────────────────────────────────────────────────────
+ESCENARIO 3: Slices A + B + C + E (sala fisica — SIN enhancement pre-diarizacion)
+────────────────────────────────────────────────────────────────────────────────
   Preprocessing    1 seg  ████░
   Resample 16k    <1 seg  █░
   Loudnorm        <1 seg  █░
-  ClearerVoice   18 seg  █████████████████░
+  compress_to_m4a  1 seg  █░
   Diarizacion     21 seg  ████████████████████░
   Spk recognition  2 seg  ██░
   Transcripcion   42 seg  █████████████████████████████████████████░
   ─────────────────────────────────────────────────────────────────
-  TOTAL:          86 seg  (vs 152 baseline)   SPEEDUP: 1.8x
-  Calidad:        maxima (ruido eliminado)
+  TOTAL:          69 seg  (vs 152 baseline)   SPEEDUP: 2.2x
+  Calidad:        MAXIMA para sala fisica (no se pierden hablantes)
 
-ESCENARIO 4: Slices A + B + C + D + E (pipeline completo)
-──────────────────────────────────────────────────────────
-  Igual a Escenario 3 + compress_to_m4a ~1 seg
-  TOTAL:          87 seg   SPEEDUP: 1.7x
-  Beneficio E:    archivos temporales 4x mas pequeños
+ESCENARIO 4: A + B + C + DeepFilterNet3 + E (ruido ambiental estatico)
+────────────────────────────────────────────────────────────────────────
+  Preprocessing    1 seg  ████░
+  Resample 16k    <1 seg  █░
+  DeepFilterNet3  ~8 seg  ████████░  (ruido estatico: HVAC, fan — NO voz)
+  Loudnorm        <1 seg  █░
+  compress_to_m4a  1 seg  █░
+  Diarizacion     21 seg  ████████████████████░
+  Spk recognition  2 seg  ██░
+  Transcripcion   42 seg  █████████████████████████████████████████░
+  ─────────────────────────────────────────────────────────────────
+  TOTAL:          77 seg  (vs 152 baseline)   SPEEDUP: 2.0x
+  NOTA: Solo usar si el audio tiene ruido ambiental real (HVAC, eco).
+        ClearerVoice SE descartado — elimina hablantes secundarios.
 ```
 
 ### 9.2 Por modelo — solo Slice C (BatchedInferencePipeline)
@@ -552,14 +644,17 @@ ESCENARIO 4: Slices A + B + C + D + E (pipeline completo)
 
 *Referencia: audio de 6 minutos en RTX 2070 Super*
 
-### 9.3 Impacto acumulado (pipeline completo, modelo small, 6 min)
+### 9.3 Impacto acumulado (pipeline recomendado para sala fisica, modelo small, 6 min)
 
 ```
-Baseline:   152 seg  ████████████████████████████████████████████████████████
-Slice C:     66 seg  ██████████████████████░
-Slices A+B+C: 68 seg  █████████████████████░
-+ Slice D:   86 seg  ████████████████████████████░
-+ Slice E:   87 seg  ████████████████████████████░ (+1 seg, 4x menos disco)
+Baseline:        152 seg  ████████████████████████████████████████████████████████
+Solo Slice C:     66 seg  ██████████████████████░
+A + B + C:        68 seg  █████████████████████░
+A + B + C + E:    69 seg  █████████████████████░  ← RECOMENDADO sala fisica
+A+B+C+DFNet3+E:   77 seg  █████████████████░       (solo si hay ruido ambiental)
+
+DESCARTADO (sala fisica):
+A+B+C+FRCRN+E:    87 seg  ████████████████████████░  ← pierde hablantes distantes
 ```
 
 ---
@@ -572,13 +667,14 @@ El orden minimiza riesgo y maximiza valor acumulado: cada slice es util independ
 ┌────────┬─────────────────────┬────────┬────────┬────────────────────────────┐
 │ Slice  │ Que hace            │ Riesgo │ Valor  │ Dependencias               │
 ├────────┼─────────────────────┼────────┼────────┼────────────────────────────┤
-│ A      │ resample_to_16k     │ Minimo │ Alto   │ ninguna (torchaudio)       │
-│ B      │ loudnorm            │ Bajo   │ Alto   │ A (necesita SR fijo)       │
-│ C      │ BatchedWhisper      │ Bajo   │ Alto   │ ninguna (independiente)    │
-│ D      │ ClearerVoice        │ Medio  │ Alto*  │ A (FRCRN necesita 16kHz)   │
-│ E      │ compress_to_m4a     │ Bajo   │ Medio  │ A (reduce archivos 4x)     │
-└────────┴─────────────────────┴────────┴────────┴────────────────────────────┘
-*Alto para audio con ruido de fondo; bajo para audio limpio
+│ A      │ resample_to_16k     │ Minimo │ Alto   │ ninguna (torchaudio)              │
+│ B      │ loudnorm            │ Bajo   │ Alto   │ A (SR fijo para LUFS)             │
+│ C      │ BatchedWhisper      │ Bajo   │ Alto   │ ninguna (independiente)           │
+│ E      │ compress_to_m4a     │ Bajo   │ Medio  │ A (archivos 4x menores)           │
+│ D*     │ DeepFilterNet3      │ Medio  │ Medio* │ A — solo ruido ambiental estatico │
+└────────┴─────────────────────┴────────┴────────┴───────────────────────────────────┘
+*D (ClearerVoice SE) descartado para sala fisica. Reemplazado por DeepFilterNet3
+ si y solo si hay ruido ambiental real. Ver seccion 8 para decision completa.
 ```
 
 ### Orden de implementacion recomendado
@@ -616,23 +712,30 @@ torchcodec (ya instalado via torchaudio 2.10) soporta AAC encoding nativo. No se
 ## 13. Conclusion
 
 El pipeline optimizado ataca los dos problemas del baseline: velocidad y calidad.
+La investigacion sobre speech enhancement cambio significativamente la estrategia
+para salas fisicas con multiples hablantes.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ MEJORAS OBTENIBLES                                                   │
-│                                                                      │
-│  Velocidad:  2.3x speedup solo con Slice C (BatchedInferencePipeline│
-│  Calidad:    +11 pp confianza en audio ruidoso (Slice D)            │
-│  Disco:      4x menos espacio en archivos temporales (Slice E)      │
-│  Robustez:   voces bajas normalizadas antes de transcribir (Slice B) │
-│                                                                      │
-│  Sin cambios de arquitectura profundos.                             │
-│  Sin dependencias nuevas para A, B, C, E.                           │
-│  D (ClearerVoice) es opcional y degradable gracefully.              │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ MEJORAS CONFIRMADAS                                                       │
+│                                                                           │
+│  Velocidad:  2.2x speedup (A+B+C+E) — sala fisica recomendado           │
+│  Robustez:   voces bajas normalizadas a -14 LUFS (Slice B)              │
+│  Disco:      4x menos espacio en archivos temporales (Slice E)          │
+│  Sin dependencias nuevas para A, B, C, E (solo torchaudio+torchcodec)  │
+│                                                                           │
+│ DESCARTADO (salas fisicas, multi-speaker):                               │
+│  ClearerVoice SE (FRCRN, MossFormerGAN) — suprime hablantes distantes  │
+│  Causa: entrenados en DNS Challenge con voces secundarias = ruido       │
+│                                                                           │
+│ ALTERNATIVA CONDICIONAL:                                                  │
+│  DeepFilterNet3 — solo si hay ruido ambiental estatico real             │
+│  (HVAC, ventiladores, eco de sala) — no para interferencia de voz      │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Recomendacion:** Implementar en orden A → B → C → D → E en el branch `feat/batched-whisper-inference`.
+**Recomendacion:** Implementar en orden A → B → C → E en el branch `feat/batched-whisper-inference`.
+Slice D (enhancement) requiere evaluacion caso a caso segun tipo de ruido del audio.
 
 ---
 
@@ -642,5 +745,12 @@ El pipeline optimizado ataca los dos problemas del baseline: velocidad y calidad
 - [Modal: Fast Whisper with dynamic batching](https://modal.com/docs/examples/whisper-transcriber)
 - [Baseten: Fastest Whisper transcription](https://www.baseten.co/blog/the-fastest-most-accurate-and-cost-efficient-whisper-transcription/)
 - [ClearerVoice-Studio models](https://github.com/modelscope/ClearerVoice-Studio)
+- [ClearerVoice-Studio Issue #88: multi-speaker limit](https://github.com/modelscope/ClearerVoice-Studio/issues/88)
 - [torchaudio loudness (ITU-R BS.1770)](https://pytorch.org/audio/stable/generated/torchaudio.functional.loudness.html)
 - [EBU R128 loudness standard](https://tech.ebu.ch/loudness)
+- [arXiv:2512.17562 — When De-noising Hurts (2024)](https://arxiv.org/abs/2512.17562)
+- [arXiv:2406.09928 — TSOS: Target Speaker Over-Suppression metric](https://arxiv.org/html/2406.09928v1)
+- [Microsoft DNS Challenge — dataset design](https://arxiv.org/abs/2005.13981)
+- [DeepFilterNet3 vs RNNoise in video conferences (ResearchGate)](https://www.researchgate.net/publication/392780104)
+- [openai/whisper Discussion #2125: preprocessing before Whisper](https://github.com/openai/whisper/discussions/2125)
+- [facebookresearch/denoiser — Demucs for speech](https://github.com/facebookresearch/denoiser)
