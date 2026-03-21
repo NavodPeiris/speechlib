@@ -11,12 +11,14 @@ if not hasattr(torchaudio, "list_audio_backends"):
 
 from .speaker_recognition import speaker_recognition
 from .write_log_file import write_log_file
+from .segment_merger import merge_short_turns
 
 from pathlib import Path
 from .audio_state import AudioState
 from .re_encode import re_encode
 from .convert_to_mono import convert_to_mono
 from .convert_to_wav import convert_to_wav
+from .resample_to_16k import resample_to_16k
 
 
 # by default use google speech-to-text API
@@ -33,6 +35,7 @@ def core_analysis(
     custom_model_path=None,
     hf_model_id=None,
     aai_api_key=None,
+    output_format: str = "txt",
 ):
 
     # <-------------------PreProcessing file-------------------------->
@@ -41,13 +44,14 @@ def core_analysis(
     state = convert_to_wav(state)
     state = convert_to_mono(state)
     state = re_encode(state)
+    state = resample_to_16k(state)
 
     # <--------------------running analysis--------------------------->
 
     speaker_tags = []
 
     pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-community-1", token=ACCESS_TOKEN
+        "pyannote/speaker-diarization-3.1", token=ACCESS_TOKEN
     )
 
     if torch.cuda.is_available():
@@ -60,9 +64,10 @@ def core_analysis(
 
     pipeline.to(device)
 
+    waveform, sample_rate = torchaudio.load(str(state.working_path))
     start_time = int(time.time())
     print("running diarization...")
-    diarization = pipeline(str(state.working_path))
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
     print(f"diarization done. Time taken: {elapsed_time} seconds.")
@@ -136,6 +141,15 @@ def core_analysis(
         del speakers[key]
         del speaker_map[key]
 
+    # merge short consecutive turns from the same speaker
+    common = merge_short_turns(common)
+    speakers = {}
+    for segment in common:
+        spk = segment[2]
+        if spk not in speakers:
+            speakers[spk] = []
+        speakers[spk].append(segment)
+
     # transcribing the texts differently according to speaker
     start_time = int(time.time())
     print("running transcription...")
@@ -171,6 +185,6 @@ def core_analysis(
                         common_segments.append([start, end, segment[2], speaker])
 
     # writing log file
-    write_log_file(common_segments, log_folder, str(state.working_path), language)
+    write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
 
     return common_segments

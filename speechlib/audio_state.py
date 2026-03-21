@@ -10,3 +10,4 @@ class AudioState(BaseModel):
     is_wav: bool = False
     is_mono: bool = False
     is_16bit: bool = False
+    is_16khz: bool = False
