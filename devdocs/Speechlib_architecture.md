@@ -1,7 +1,7 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.3
-**Updated:** 2026-03-11
+**Version:** 2.4
+**Updated:** 2026-03-21
 
 ---
 
@@ -37,11 +37,12 @@ Modules
   ├── convert_to_wav.py      any format → WAV  (torchaudio)
   ├── convert_to_mono.py     stereo → mono     (wave + numpy)
   ├── re_encode.py           8-bit → 16-bit PCM (wave)
+  ├── segment_merger.py      merge_short_turns — post-diarization segment merging
   ├── wav_segmenter.py       slice + transcribe per segment (torchaudio)
   ├── speaker_recognition.py  pyannote embedding + cosine similarity
-  ├── transcribe.py          multi-backend transcription
+  ├── transcribe.py          multi-backend transcription (LRU-cached models)
   ├── whisper_sinhala.py     Sinhala-specific HF pipeline
-  └── write_log_file.py      transcript → .txt
+  └── write_log_file.py      transcript → .txt or .srt
 ```
 
 ---
@@ -131,8 +132,13 @@ Input: audio file (any format)
     │     audio_utils.slice_and_save (torchaudio) → temp WAV → transcribe() → delete temp
     │   Output: [[start, end, transcript], ...]
     │
+    ▼ Segment Merging (optional)
+    │   merge_short_turns(common, max_gap_s=0.5)
+    │   Merges consecutive same-speaker segments with gap < max_gap_s
+    │
     ▼ Write Log File
-        {log_folder}/{filename}_{HHMMSS}_{lang}.txt
+        TXT: {log_folder}/{filename}_{HHMMSS}_{lang}.txt
+        SRT: {log_folder}/{filename}_{HHMMSS}_{lang}.srt  (optional)
 ```
 
 ---
@@ -148,13 +154,25 @@ After speaker recognition (if enabled):
   common = [[0.0, 2.3, "john_doe"],
             [2.3, 5.1, "jane_smith"], ...]
 
+After segment merging (optional):
+  common = [[0.0, 5.1, "john_doe"], ...]  ← merged if gap < 0.5s and same speaker
+
 Return value of core_analysis:
   [[0.0, 2.3, "Hello everyone",    "john_doe"],
    [2.3, 5.1, "Hi, glad to be here", "jane_smith"], ...]
 
-Log file:
+TXT log file:
   john_doe (0.0 : 2.3) : Hello everyone
   jane_smith (2.3 : 5.1) : Hi, glad to be here
+
+SRT log file:
+  1
+  00:00:00,000 --> 00:00:02,300
+  john_doe: Hello everyone
+
+  2
+  00:00:02,300 --> 00:00:05,100
+  jane_smith: Hi, glad to be here
 ```
 
 ---
@@ -164,7 +182,7 @@ Log file:
 | `model_type` | Backend | Notes |
 |---|---|---|
 | `"whisper"` | OpenAI Whisper | loads model per call |
-| `"faster-whisper"` | CTranslate2/faster-whisper | int8 quantization supported |
+| `"faster-whisper"` | CTranslate2/faster-whisper | int8 quantization; model cached via `@lru_cache(maxsize=4)` |
 | `"custom"` | local Whisper checkpoint | path via `custom_model_path` |
 | `"huggingface"` | HF ASR pipeline | model ID via `hf_model_id` |
 | `"assemblyAI"` | AssemblyAI cloud API | requires `aai_api_key` |
@@ -221,7 +239,8 @@ state = my_step(state)
 
 | Issue | Plan |
 |---|---|
-| `transcribe.py`, `write_log_file.py`, `whisper_sinhala.py` have no unit tests | Add mocked unit tests per TDD methodology |
+| `whisper_sinhala.py` has no unit tests | Add mocked unit tests per TDD methodology |
+| Slices A, B, D, C (resample, loudnorm, SE, batched whisper) pending | See `plan_optimizacion_pipeline.md` |
 
 ---
 
@@ -234,8 +253,8 @@ state = my_step(state)
 | `torch` | device management, tensor ops |
 | `wave` | WAV read/write (mono conversion, re-encoding) |
 | `numpy` | stereo→mono mix-down |
-| `pyannote.audio` | speaker diarization (pyannote 4.x) and embedding extraction |
-| `whisper` / `faster_whisper` | transcription |
+| `pyannote.audio` 4.x | speaker diarization (`speaker-diarization-3.1`, `token=` auth) and embedding extraction |
+| `whisper` / `faster_whisper` | transcription (faster-whisper with LRU-cached `WhisperModel`) |
 | `transformers` | HuggingFace ASR pipeline |
 | `scipy` | cosine similarity for speaker matching |
 | `assemblyai` | cloud transcription API |

@@ -1,6 +1,9 @@
-# Analisis Visual: Pipeline Actual vs Batched Whisper
+# Análisis Visual: Pipeline Actual vs. BatchedInferencePipeline
 
-## Pipeline Actual ( secuencial )
+> **Scope:** Solo transcripción con faster-whisper (Slice C del plan de optimización).
+> ClearVoice SE fue descartado — ver `plan_optimizacion_pipeline.md` Slice D.
+
+## Pipeline Actual (secuencial)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -51,11 +54,11 @@ GPU Utilization (tiempo):
 
 ---
 
-## Pipeline Optimizado ( Batched )
+## Pipeline Optimizado (BatchedInferencePipeline)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    TRANSCRIPCION BATCHED (~40 seg)                        │
+│                    TRANSCRIPCION BATCHED (~43 seg)                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  AUDIO (6 min)                                                              │
@@ -110,19 +113,19 @@ GPU Utilization (tiempo):
 ```
 ACTUAL (SECUENCIAL):                          OPTIMIZADO (BATCHED):
                                               
-  Chunk 1: [████████████] 30s                  Batch 1: [████████████] 10s
-             └─ espera ─┘                        
-  Chunk 2:               [████████████] 30s        (chunks 1-3 en paralelo)
-                                    └─ espera ┘  
+  Chunk 1: [████████████] 30s                  Batch:   [████████████] ~10s
+             └─ espera ─┘
+  Chunk 2:               [████████████] 30s        (todos los chunks en paralelo,
+                                    └─ espera ┘    batch_size=16, GPU ~90%)
   Chunk 3:                             [████████████] 30s
-                                                    
-  ...                                              
-                                                    
-  Chunk N:                                        Chunk N:
-                              [████████████] 30s          (chunks N-2...N en paralelo)
-                                                                          
+
+  ...
+
+  Chunk N:
+                              [████████████] 30s
+
   ─────────────────────────────────────────────    ─────────────────────────
-  TOTAL: ~128s                                    TOTAL: ~40s
+  TOTAL: ~128s                                    TOTAL: ~43s
 ```
 
 ---
@@ -142,12 +145,15 @@ GPU Compute:       ▓▓▓▓░░░░░░░░░░░  30%       █�
 
 ## Resumen
 
-| Metrica              | Actual   | Optimizado | Mejora    |
-|---------------------|----------|------------|----------|
-| Tiempo total        | 128 seg  | ~40 seg    | **3.2x** |
-| GPU utilization     | ~30%     | ~90%       | **3x**   |
-| Chunks procesados   | 1 por vez| 16 por vez | **16x**  |
-| VRAM usada          | ~1 GB    | ~1.5 GB    | +0.5 GB  |
+| Métrica             | Actual   | Con Batching | Mejora    |
+|---------------------|----------|--------------|-----------|
+| Tiempo transcripción| 128 seg  | ~43 seg      | **~3x**   |
+| GPU utilization     | ~30%     | ~90%         | **3x**    |
+| Chunks por pasada   | 1        | 16           | **16x**   |
+| VRAM adicional      | —        | +0.5–1 GB    | —         |
+
+> Speedup: 3x sobre faster-whisper secuencial, 12.5x sobre whisper original.
+> Fuente: benchmarks faster-whisper con `batch_size=16`, RTX 2070 Super.
 
 ---
 
