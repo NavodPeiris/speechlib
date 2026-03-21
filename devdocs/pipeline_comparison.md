@@ -1,7 +1,9 @@
 # Análisis Visual: Pipeline Actual vs. BatchedInferencePipeline
 
-> **Scope:** Solo transcripción con faster-whisper (Slice C del plan de optimización).
-> ClearVoice SE fue descartado — ver `plan_optimizacion_pipeline.md` Slice D.
+> **Scope:** Pipeline completo implementado — Slices A, B, D, C.
+> Pipeline de ejecución: `resample_to_16k → loudnorm → enhance_audio → diarize → transcribe (batched)`
+> ClearVoice SE fue descartado inicialmente, pero luego reintegrado tras validar que
+> `loudnorm`-first elimina la supresión de hablantes secundarios.
 
 ## Pipeline Actual (secuencial)
 
@@ -147,13 +149,14 @@ GPU Compute:       ▓▓▓▓░░░░░░░░░░░  30%       █�
 
 | Métrica             | Actual   | Con Batching | Mejora    |
 |---------------------|----------|--------------|-----------|
-| Tiempo transcripción| 128 seg  | ~43 seg      | **~3x**   |
+| Tiempo transcripción| 13.23s   | 2.58s        | **5.12x** |
 | GPU utilization     | ~30%     | ~90%         | **3x**    |
 | Chunks por pasada   | 1        | 16           | **16x**   |
 | VRAM adicional      | —        | +0.5–1 GB    | —         |
 
-> Speedup: 3x sobre faster-whisper secuencial, 12.5x sobre whisper original.
-> Fuente: benchmarks faster-whisper con `batch_size=16`, RTX 2070 Super.
+> **Speedup medido: 5.12x** sobre faster-whisper secuencial en RTX 2070 Super.
+> Audio de referencia: `obama_zach_16k.wav` (~6.6 min), modelo `base`, CUDA float16.
+> Benchmark reproducible: `python benchmark_slice_c.py`
 
 ---
 

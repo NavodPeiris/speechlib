@@ -1,6 +1,6 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.4
+**Version:** 2.5
 **Updated:** 2026-03-21
 
 ---
@@ -37,6 +37,9 @@ Modules
   ├── convert_to_wav.py      any format → WAV  (torchaudio)
   ├── convert_to_mono.py     stereo → mono     (wave + numpy)
   ├── re_encode.py           8-bit → 16-bit PCM (wave)
+  ├── resample_to_16k.py     any SR → 16 kHz   (torchaudio.functional.resample)
+  ├── loudnorm.py            EBU R128 → -14 LUFS true peak -1 dB (torchaudio)
+  ├── enhance_audio.py       speech enhancement MossFormer2_SE_48K (ClearVoice)
   ├── segment_merger.py      merge_short_turns — post-diarization segment merging
   ├── wav_segmenter.py       slice + transcribe per segment (torchaudio)
   ├── speaker_recognition.py  pyannote embedding + cosine similarity
@@ -55,11 +58,14 @@ Each step receives and returns an `AudioState`. The **source file is never modif
 class AudioState(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    source_path: Path    # original — immutable
-    working_path: Path   # current processed file
-    is_wav:   bool = False
-    is_mono:  bool = False
-    is_16bit: bool = False
+    source_path:   Path    # original — immutable
+    working_path:  Path    # current processed file
+    is_wav:        bool = False
+    is_mono:       bool = False
+    is_16bit:      bool = False
+    is_16khz:      bool = False   # set by resample_to_16k
+    is_normalized: bool = False   # set by loudnorm
+    is_enhanced:   bool = False   # set by enhance_audio
 ```
 
 ### Flow
@@ -76,9 +82,18 @@ AudioState(working="meeting.wav",            is_wav=True)
 AudioState(working="meeting_mono.wav",       is_wav=True, is_mono=True)
     │
     ▼ re_encode()             wave
-AudioState(working="meeting_mono_16bit.wav", is_wav=True, is_mono=True, is_16bit=True)
+AudioState(working="meeting_mono_16bit.wav",     is_wav=True, is_mono=True, is_16bit=True)
     │
-    ▼ pipeline(str(state.working_path))   ← used directly by diarization
+    ▼ resample_to_16k()       torchaudio.functional.resample
+AudioState(working="meeting_mono_16bit_16k.wav", ..., is_16khz=True)
+    │
+    ▼ loudnorm()              EBU R128 — in-place, -14 LUFS / -1 dBTP
+AudioState(working="meeting_mono_16bit_16k.wav", ..., is_normalized=True)
+    │
+    ▼ enhance_audio()         ClearVoice MossFormer2_SE_48K (GPU, lazy-loaded)
+AudioState(working=".../MossFormer2_SE_48K/meeting_mono_16bit_16k.wav", is_enhanced=True)
+    │
+    ▼ pipeline({"waveform": ..., "sample_rate": ...})   ← diarization
 ```
 
 ### Step behavior
@@ -91,6 +106,12 @@ AudioState(working="meeting_mono_16bit.wav", is_wav=True, is_mono=True, is_16bit
 | | 2+ channels | numpy mix-down to `*_mono.wav`, updates working_path |
 | `re_encode` | sampwidth == 2 | `is_16bit=True`, working_path unchanged |
 | | sampwidth == 1 | converts to `*_16bit.wav`, updates working_path |
+| `resample_to_16k` | already 16 kHz | `is_16khz=True`, working_path unchanged |
+| | other SR | torchaudio.functional.resample → `*_16k.wav`, updates working_path |
+| `loudnorm` | within ±0.5 LUFS of target | `is_normalized=True`, no file rewrite |
+| | LUFS < -70 (silence) | `is_normalized=True`, skip (avoid gain on silence) |
+| | other | apply gain → clamp at -1 dBTP → overwrite working_path in-place |
+| `enhance_audio` | always | ClearVoice SE → `*_enhanced_out/MossFormer2_SE_48K/*.wav`, updates working_path |
 
 ### Wiring in core_analysis
 
@@ -99,9 +120,13 @@ state = AudioState(source_path=Path(file_name), working_path=Path(file_name))
 state = convert_to_wav(state)
 state = convert_to_mono(state)
 state = re_encode(state)
+state = resample_to_16k(state)   # Slice A
+state = loudnorm(state)           # Slice B — normalize before SE
+state = enhance_audio(state)      # Slice D — MossFormer2_SE_48K
 
-# state.working_path is passed directly as a string path to the diarization pipeline
-diarization = pipeline(str(state.working_path))
+# diarization receives waveform dict (pyannote 4.x API)
+waveform, sample_rate = torchaudio.load(str(state.working_path))
+diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
 ```
 
 ---
@@ -113,10 +138,11 @@ Input: audio file (any format)
     │
     ▼ Preprocessing
     │   convert_to_wav → convert_to_mono → re_encode
-    │   Result: WAV, mono, 16-bit PCM
+    │     → resample_to_16k → loudnorm → enhance_audio
+    │   Result: WAV, mono, 16-bit, 16 kHz, -14 LUFS, SE-enhanced
     │
-    ▼ Diarization — Pyannote 4.x
-    │   Input:  state.working_path (as string path)
+    ▼ Diarization — Pyannote 4.x (speaker-diarization-3.1)
+    │   Input:  {"waveform": tensor, "sample_rate": int}
     │   Output: [[start, end, "SPEAKER_00"], ...]
     │   Note:   pyannote 4.x may return a DiarizeOutput object;
     │           core_analysis reads .speaker_diarization if present,
@@ -182,7 +208,7 @@ SRT log file:
 | `model_type` | Backend | Notes |
 |---|---|---|
 | `"whisper"` | OpenAI Whisper | loads model per call |
-| `"faster-whisper"` | CTranslate2/faster-whisper | int8 quantization; model cached via `@lru_cache(maxsize=4)` |
+| `"faster-whisper"` | CTranslate2/faster-whisper | `BatchedInferencePipeline(batch_size=16)`; model cached via `@lru_cache(maxsize=4)`; **5.12x speedup** medido en RTX 2070 Super |
 | `"custom"` | local Whisper checkpoint | path via `custom_model_path` |
 | `"huggingface"` | HF ASR pipeline | model ID via `hf_model_id` |
 | `"assemblyAI"` | AssemblyAI cloud API | requires `aai_api_key` |
@@ -240,7 +266,6 @@ state = my_step(state)
 | Issue | Plan |
 |---|---|
 | `whisper_sinhala.py` has no unit tests | Add mocked unit tests per TDD methodology |
-| Slices A, B, D, C (resample, loudnorm, SE, batched whisper) pending | See `plan_optimizacion_pipeline.md` |
 
 ---
 
@@ -254,7 +279,8 @@ state = my_step(state)
 | `wave` | WAV read/write (mono conversion, re-encoding) |
 | `numpy` | stereo→mono mix-down |
 | `pyannote.audio` 4.x | speaker diarization (`speaker-diarization-3.1`, `token=` auth) and embedding extraction |
-| `whisper` / `faster_whisper` | transcription (faster-whisper with LRU-cached `WhisperModel`) |
+| `whisper` / `faster_whisper` | transcription (faster-whisper with `BatchedInferencePipeline`, LRU-cached `WhisperModel`) |
+| `ClearVoice` (local) | speech enhancement — `MossFormer2_SE_48K` via `c:\workspace\#dev\ClearerVoice-Studio` |
 | `transformers` | HuggingFace ASR pipeline |
 | `scipy` | cosine similarity for speaker matching |
 | `assemblyai` | cloud transcription API |
