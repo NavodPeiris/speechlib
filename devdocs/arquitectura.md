@@ -1,6 +1,6 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.5
+**Version:** 2.6
 **Updated:** 2026-03-21
 
 ---
@@ -32,6 +32,7 @@ core_analysis()  [orchestrator]
   └── Write Log File
 
 Modules
+  ├── speechlib.py           Transcriptor, PreProcessor — user-facing API
   ├── audio_state.py         AudioState — pipeline state carrier
   ├── audio_utils.py         slice_and_save — torchaudio-based audio slicing
   ├── convert_to_wav.py      any format → WAV  (torchaudio)
@@ -194,11 +195,11 @@ TXT log file:
 SRT log file:
   1
   00:00:00,000 --> 00:00:02,300
-  john_doe: Hello everyone
+  [john_doe] Hello everyone
 
   2
   00:00:02,300 --> 00:00:05,100
-  jane_smith: Hi, glad to be here
+  [jane_smith] Hi, glad to be here
 ```
 
 ---
@@ -223,6 +224,7 @@ SRT log file:
 |---|---|---|
 | `segments/segment_N.wav` | `wav_segmenter.py` | `wav_segmenter.py` (after transcription) |
 | `temp/{name}_segmentN.wav` | `speaker_recognition.py` | `speaker_recognition.py` (after scoring) |
+| `{input_dir}/{stem}_enhanced_out/MossFormer2_SE_48K/` | `enhance_audio.py` | **never** — persiste en disco |
 | Cache | Pyannote models at import | never — cached model weights |
 
 ---
@@ -234,8 +236,8 @@ Stores parameters, delegates to `core_analysis()`.
 Methods: `whisper()`, `faster_whisper()`, `custom_whisper(path)`, `huggingface_model(id)`, `assemby_ai_model(key)`
 
 **`PreProcessor`**
-Exposes preprocessing steps individually.
-Methods: `convert_to_wav(file)`, `convert_to_mono(file)`, `re_encode(file)`
+Exposes all preprocessing steps individually. Each method accepts a file path and returns the output file path.
+Methods: `convert_to_wav(file)`, `convert_to_mono(file)`, `re_encode(file)`, `resample_to_16k(file)`, `loudnorm(file)`, `enhance_audio(file)`
 
 ---
 
@@ -254,7 +256,7 @@ def my_step(state: AudioState) -> AudioState:
     return state.model_copy(update={"working_path": new_path})
 ```
 
-Wire after `re_encode` in `core_analysis.py`:
+Wire after `enhance_audio` in `core_analysis.py`:
 ```python
 state = my_step(state)
 ```

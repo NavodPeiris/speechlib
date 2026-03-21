@@ -2,6 +2,9 @@ from .core_analysis import core_analysis
 from .re_encode import re_encode
 from .convert_to_mono import convert_to_mono
 from .convert_to_wav import convert_to_wav
+from .resample_to_16k import resample_to_16k
+from .loudnorm import loudnorm
+from .enhance_audio import enhance_audio
 from .audio_state import AudioState
 
 
@@ -326,11 +329,12 @@ class PreProcessor:
 
     methods:
 
-    re_encode(file) -> re-encode file to 16-bit PCM encoding
-
-    convert_to_mono(file) -> convert file from stereo to mono
-
-    mp3_to_wav(file) -> convert mp3 file to wav format
+    convert_to_wav(file)   -> convert any format to WAV
+    convert_to_mono(file)  -> convert stereo to mono
+    re_encode(file)        -> re-encode to 16-bit PCM
+    resample_to_16k(file)  -> resample to 16 kHz
+    loudnorm(file)         -> normalize to -14 LUFS EBU R128
+    enhance_audio(file)    -> speech enhancement (ClearVoice MossFormer2_SE_48K)
 
     """
 
@@ -353,4 +357,25 @@ class PreProcessor:
 
         state = AudioState(source_path=Path(file), working_path=Path(file))
         result = convert_to_wav(state)
+        return str(result.working_path)
+
+    def resample_to_16k(self, file):
+        from pathlib import Path
+
+        state = AudioState(source_path=Path(file), working_path=Path(file))
+        result = resample_to_16k(state)
+        return str(result.working_path)
+
+    def loudnorm(self, file):
+        from pathlib import Path
+
+        state = AudioState(source_path=Path(file), working_path=Path(file))
+        result = loudnorm(state)
+        return str(result.working_path)
+
+    def enhance_audio(self, file):
+        from pathlib import Path
+
+        state = AudioState(source_path=Path(file), working_path=Path(file))
+        result = enhance_audio(state)
         return str(result.working_path)
