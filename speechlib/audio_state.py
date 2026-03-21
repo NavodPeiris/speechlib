@@ -11,3 +11,4 @@ class AudioState(BaseModel):
     is_mono: bool = False
     is_16bit: bool = False
     is_16khz: bool = False
+    is_normalized: bool = False

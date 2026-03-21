@@ -19,6 +19,7 @@ from .re_encode import re_encode
 from .convert_to_mono import convert_to_mono
 from .convert_to_wav import convert_to_wav
 from .resample_to_16k import resample_to_16k
+from .loudnorm import loudnorm
 
 
 # by default use google speech-to-text API
@@ -45,6 +46,7 @@ def core_analysis(
     state = convert_to_mono(state)
     state = re_encode(state)
     state = resample_to_16k(state)
+    state = loudnorm(state)
 
     # <--------------------running analysis--------------------------->
 

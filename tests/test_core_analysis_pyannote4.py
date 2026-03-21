@@ -29,6 +29,7 @@ def test_from_pretrained_uses_3_1_model(tmp_path):
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),
         patch("speechlib.core_analysis.re_encode", side_effect=lambda s: s),
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch("speechlib.core_analysis.wav_file_segmentation", return_value=[]),
         patch("speechlib.core_analysis.write_log_file"),
     ):
@@ -59,6 +60,7 @@ def test_pipeline_called_with_waveform_dict(tmp_path):
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),
         patch("speechlib.core_analysis.re_encode", side_effect=lambda s: s),
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch("speechlib.core_analysis.wav_file_segmentation", return_value=[]),
         patch("speechlib.core_analysis.write_log_file"),
     ):
@@ -92,6 +94,7 @@ def test_itertracks_still_yields_3tuple(tmp_path):
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),
         patch("speechlib.core_analysis.re_encode", side_effect=lambda s: s),
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch(
             "speechlib.core_analysis.wav_file_segmentation",
             return_value=[[0.0, 1.0, "hello"]],
