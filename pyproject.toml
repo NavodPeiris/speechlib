@@ -33,6 +33,11 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["speechlib*"]
 
+[tool.pytest.ini_options]
+markers = [
+    "e2e: end-to-end tests that require HF_TOKEN and real audio (slow)",
+]
+
 [project.urls]
 Homepage = "https://github.com/NavodPeiris/speechlib"
 Source = "https://github.com/NavodPeiris/speechlib"

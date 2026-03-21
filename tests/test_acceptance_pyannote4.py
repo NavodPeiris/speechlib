@@ -7,9 +7,9 @@ from pathlib import Path
 from conftest import make_wav
 
 
-def test_pipeline_initialized_with_community1_model(tmp_path):
+def test_pipeline_initialized_with_3_1_model(tmp_path):
     """
-    core_analysis llama a Pipeline.from_pretrained con el modelo community-1
+    core_analysis llama a Pipeline.from_pretrained con el modelo 3.1
     y el parámetro token= (no use_auth_token=).
     """
     wav = make_wav(tmp_path / "audio.wav", n_frames=1600)
@@ -29,6 +29,9 @@ def test_pipeline_initialized_with_community1_model(tmp_path):
         patch("speechlib.core_analysis.convert_to_wav", side_effect=lambda s: s),
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),
         patch("speechlib.core_analysis.re_encode", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
+        patch("speechlib.core_analysis.enhance_audio", side_effect=lambda s: s),
         patch("speechlib.core_analysis.wav_file_segmentation", return_value=[]),
         patch("speechlib.core_analysis.write_log_file"),
     ):
@@ -40,6 +43,6 @@ def test_pipeline_initialized_with_community1_model(tmp_path):
         core_analysis(str(wav), None, "logs", "en", "tiny", "TOKEN", "whisper")
 
         mock_cls.from_pretrained.assert_called_once_with(
-            "pyannote/speaker-diarization-community-1",
+            "pyannote/speaker-diarization-3.1",
             token="TOKEN",
         )

@@ -1,10 +1,17 @@
 import torch
 from .whisper_sinhala import (whisper_sinhala)
-from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 import whisper
 import os
 from transformers import pipeline
 import assemblyai as aai
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4)
+def _get_faster_whisper_model(model_size: str, device: str, compute_type: str) -> "WhisperModel":
+    return WhisperModel(model_size, device=device, compute_type=compute_type)
+
 
 def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
     res = ""
@@ -14,22 +21,24 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
     elif model_size in ["base", "tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3"]:
         if model_type == "faster-whisper":
             if torch.cuda.is_available():
-                if quantization:
-                    model = WhisperModel(model_size, device="cuda", compute_type="int8_float16")
-                else:
-                    model = WhisperModel(model_size, device="cuda", compute_type="float16")
+                compute_type = "int8_float16" if quantization else "float16"
+                model = _get_faster_whisper_model(model_size, "cuda", compute_type)
             else:
-                if quantization:
-                    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-                else:
-                    model = WhisperModel(model_size, device="cpu", compute_type="float32")
+                compute_type = "int8" if quantization else "float32"
+                model = _get_faster_whisper_model(model_size, "cpu", compute_type)
 
             if language in model.supported_languages:
-                segments, info = model.transcribe(file, language=language, beam_size=5)
+                batched = BatchedInferencePipeline(model=model)
+                segments, info = batched.transcribe(
+                    file,
+                    language=language,
+                    beam_size=5,
+                    batch_size=16,
+                )
 
                 for segment in segments:
                     res += segment.text + " "
-                    
+
                 return res
             else:
                 Exception("Language code not supported.\nThese are the supported languages:\n", model.supported_languages)

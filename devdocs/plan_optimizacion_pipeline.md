@@ -11,10 +11,10 @@
 
 | Slice | Descripción | Estado |
 |-------|-------------|--------|
-| A | resample_to_16k (torchaudio, CPU) | ⏳ pendiente |
-| B | loudnorm EBU R128 (torchaudio, CPU) | ⏳ pendiente |
-| D | Speech Enhancement ClearerVoice `MossFormer2_SE_48K` (GPU) | ⏳ pendiente |
-| C | BatchedInferencePipeline faster-whisper (GPU) | ⏳ pendiente |
+| A | resample_to_16k (torchaudio, CPU) | ✅ completado |
+| B | loudnorm EBU R128 (torchaudio, CPU) | ✅ completado |
+| D | Speech Enhancement ClearerVoice `MossFormer2_SE_48K` (GPU) | ✅ completado |
+| C | BatchedInferencePipeline faster-whisper (GPU) | ✅ completado |
 
 **Orden de implementación:** A → B → D → C
 **Orden de ejecución en pipeline:** A → B → D → C
@@ -33,15 +33,165 @@
 
 Whisper resamplea internamente a 16kHz de todas formas. Hacerlo explícitamente antes:
 - Reduce tamaño de archivos temporales ~3x (de 44.1/48kHz → 16kHz)
-- Garantiza que todos los pasos siguientes trabajen con el SR correcto
+- Garantiza que loudnorm (Slice B) y ClearVoice (Slice D) reciban el SR correcto
 
-### Archivo nuevo: `speechlib/resample_to_16k.py`
+---
+
+### Metodología: ATDD → TDD (ver `standard-atdd-tdd.md`)
+
+Orden: AT RED → unit tests RED → producción GREEN → refactor → commit.
+
+---
+
+### Paso 1 — Acceptance Test (RED)
+
+**Archivo nuevo:** `tests/test_acceptance_slice_a.py`
+
+Sin mocks. Ejerce el pipeline de preprocessing real hasta el efecto observable:
+archivo de salida a 16kHz en disco. Falla hasta que `resample_to_16k` esté
+creado y wired.
+
+```python
+"""AT: el pipeline de preprocessing produce audio a 16kHz (Slice A)."""
+import torchaudio
+from pathlib import Path
+from conftest import make_wav
+from speechlib.audio_state import AudioState
+from speechlib.convert_to_wav import convert_to_wav
+from speechlib.convert_to_mono import convert_to_mono
+from speechlib.re_encode import re_encode
+from speechlib.resample_to_16k import resample_to_16k
+
+
+def test_preprocessing_pipeline_outputs_16khz(tmp_path):
+    """AT: dado audio a 44100 Hz, el pipeline produce un archivo a 16000 Hz."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=44100, n_frames=4410)
+
+    state = AudioState(source_path=wav, working_path=wav)
+    state = convert_to_wav(state)
+    state = convert_to_mono(state)
+    state = re_encode(state)
+    state = resample_to_16k(state)
+
+    assert state.is_16khz is True
+    _, sr = torchaudio.load(str(state.working_path))
+    assert sr == 16000
+
+
+def test_preprocessing_pipeline_already_16khz(tmp_path):
+    """AT: audio ya a 16kHz pasa el pipeline sin crear archivos extra."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=16000, n_frames=1600)
+    files_before = set(tmp_path.iterdir())
+
+    state = AudioState(source_path=wav, working_path=wav)
+    state = convert_to_wav(state)
+    state = convert_to_mono(state)
+    state = re_encode(state)
+    state = resample_to_16k(state)
+
+    assert state.is_16khz is True
+    _, sr = torchaudio.load(str(state.working_path))
+    assert sr == 16000
+    # no se crea ningún archivo _16k nuevo
+    assert not any("_16k" in f.name for f in tmp_path.iterdir())
+```
+
+---
+
+### Paso 2 — Unit Tests (RED)
+
+**Archivo nuevo:** `tests/test_resample_to_16k.py`
+
+```python
+"""Unit tests: speechlib/resample_to_16k.py"""
+import torchaudio
+from pathlib import Path
+from conftest import make_wav
+from speechlib.resample_to_16k import resample_to_16k
+from speechlib.audio_state import AudioState
+
+
+def _state(path: Path) -> AudioState:
+    return AudioState(source_path=path, working_path=path,
+                      is_wav=True, is_mono=True, is_16bit=True)
+
+
+def test_non_16k_audio_is_resampled(tmp_path):
+    """44100 Hz → nuevo archivo _16k.wav a 16000 Hz."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=44100, n_frames=4410)
+    result = resample_to_16k(_state(wav))
+
+    assert result.is_16khz is True
+    assert result.working_path != wav
+    assert "_16k" in result.working_path.name
+    assert result.working_path.exists()
+    _, sr = torchaudio.load(str(result.working_path))
+    assert sr == 16000
+
+
+def test_already_16k_passes_through(tmp_path):
+    """16000 Hz → mismo working_path, sin crear archivo nuevo."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=16000, n_frames=1600)
+    result = resample_to_16k(_state(wav))
+
+    assert result.is_16khz is True
+    assert result.working_path == wav
+    assert not (tmp_path / "audio_16k.wav").exists()
+
+
+def test_48k_audio_is_resampled(tmp_path):
+    """48000 Hz (micrófono de reunión) → 16000 Hz."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=48000, n_frames=4800)
+    result = resample_to_16k(_state(wav))
+
+    assert result.is_16khz is True
+    _, sr = torchaudio.load(str(result.working_path))
+    assert sr == 16000
+
+
+def test_source_path_is_never_modified(tmp_path):
+    """source_path permanece igual en todos los casos."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=44100, n_frames=4410)
+    state = _state(wav)
+    result = resample_to_16k(state)
+
+    assert result.source_path == state.source_path
+
+
+def test_output_is_mono_wav(tmp_path):
+    """El archivo de salida es WAV mono (1 canal)."""
+    wav = make_wav(tmp_path / "audio.wav", framerate=44100, n_frames=4410)
+    result = resample_to_16k(_state(wav))
+
+    waveform, _ = torchaudio.load(str(result.working_path))
+    assert waveform.shape[0] == 1
+```
+
+---
+
+### Paso 3 — Producción
+
+#### `speechlib/audio_state.py` — añadir campo
+
+```python
+class AudioState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    source_path:   Path
+    working_path:  Path
+    is_wav:        bool = False
+    is_mono:       bool = False
+    is_16bit:      bool = False
+    is_16khz:      bool = False   # ← nuevo
+```
+
+#### `speechlib/resample_to_16k.py` — archivo nuevo
 
 ```python
 import torchaudio
 from .audio_state import AudioState
 
 TARGET_SR = 16000
+
 
 def resample_to_16k(state: AudioState) -> AudioState:
     waveform, sr = torchaudio.load(str(state.working_path))
@@ -54,27 +204,44 @@ def resample_to_16k(state: AudioState) -> AudioState:
     return state.model_copy(update={"working_path": out_path, "is_16khz": True})
 ```
 
-### Wiring en `core_analysis.py`
+#### `speechlib/core_analysis.py` — import + wiring
 
 ```python
+# añadir import junto a los demás
+from .resample_to_16k import resample_to_16k
+
+# en core_analysis(), después de re_encode:
 state = re_encode(state)
 state = resample_to_16k(state)   # ← nuevo
-diarization = pipeline(str(state.working_path))
 ```
 
-### AudioState: campo nuevo requerido
+---
+
+### Paso 4 — Actualizar tests existentes de core_analysis
+
+Los tests en `test_core_analysis_pyannote4.py` usan mocks para aislar de pyannote/GPU
+(servicios externos inevitables). Al wired `resample_to_16k` en core_analysis, esos
+tests romperán porque el nuevo import no existe aún. Una vez en GREEN, añadir el
+pass-through para mantenerlos GREEN:
 
 ```python
-is_16khz: bool = False
+patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
 ```
+
+Afecta a los 3 tests existentes: `test_from_pretrained_uses_3_1_model`,
+`test_pipeline_called_with_waveform_dict`, `test_itertracks_still_yields_3tuple`.
+
+---
 
 ### Definition of Done
 
-- [ ] `speechlib/resample_to_16k.py` creado
-- [ ] `AudioState` tiene campo `is_16khz`
-- [ ] `core_analysis.py` llama a `resample_to_16k` después de `re_encode`
-- [ ] Test unitario: verifica que audio no-16kHz se resamplea; audio ya 16kHz pasa sin cambio
-- [ ] Test unitario: `is_16khz=True` en ambos casos
+- [ ] AT RED: `test_acceptance_slice_a.py::test_core_analysis_calls_resample_to_16k` falla
+- [ ] Unit tests RED: los 5 tests en `test_resample_to_16k.py` fallan
+- [ ] `audio_state.py`: campo `is_16khz` añadido
+- [ ] `resample_to_16k.py`: creado, todos los unit tests GREEN
+- [ ] `core_analysis.py`: import + llamada después de `re_encode`, AT GREEN
+- [ ] `test_core_analysis_pyannote4.py`: mock añadido, 3 tests siguen GREEN
+- [ ] Commit: `feat: add resample_to_16k preprocessing step (Slice A)`
 
 ---
 

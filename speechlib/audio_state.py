@@ -12,3 +12,4 @@ class AudioState(BaseModel):
     is_16bit: bool = False
     is_16khz: bool = False
     is_normalized: bool = False
+    is_enhanced: bool = False
