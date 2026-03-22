@@ -81,7 +81,9 @@ def test_vtt_timestamps_use_dot(tmp_path):
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     assert "00:02:05.500" in content
     assert "00:02:10.000" in content
-    assert "," not in content.split("WEBVTT")[1], "No debe haber comas en timestamps VTT"
+    import re
+    smpte = re.findall(r"\d{2}:\d{2}:\d{2},\d{3}", content)
+    assert len(smpte) == 0, f"Timestamps con coma (formato SRT) encontrados: {smpte}"
 
 def test_vtt_skips_empty_text(tmp_path):
     segments = [[0.0, 1.0, "", "SPEAKER_00"], [1.0, 2.0, "real", "SPEAKER_01"]]

@@ -256,7 +256,10 @@ def test_v3_vtt_timestamps_use_dot(run_result_vtt):
     assert len(matches) >= 1, (
         f"No se encontraron timestamps VTT. Primeros 300 chars:\n{content[:300]}"
     )
-    assert "," not in content.split("WEBVTT")[1], "No debe haber comas en timestamps VTT"
+    # Verificar que las líneas de timestamp no usan coma (SRT) sino punto (VTT)
+    smpte_pattern = r"\d{2}:\d{2}:\d{2},\d{3}"
+    smpte_matches = re.findall(smpte_pattern, content)
+    assert len(smpte_matches) == 0, f"Timestamps con coma (formato SRT) encontrados: {smpte_matches[:3]}"
 
 
 @needs_hf
