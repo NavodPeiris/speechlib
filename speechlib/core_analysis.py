@@ -58,6 +58,10 @@ def core_analysis(
     skip_enhance: bool = False,
     grouping_mode: str = "sentences",
 ):
+    if log_folder is None:
+        log_folder = os.path.join(
+            os.path.dirname(os.path.abspath(file_name)), "output"
+        )
 
     # <-------------------PreProcessing file-------------------------->
 
