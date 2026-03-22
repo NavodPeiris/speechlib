@@ -157,7 +157,7 @@ def core_analysis(
     print("running transcription...")
     with measure("transcription", gpu=True):
         for spk_tag, spk_segments in speakers.items():
-            spk = speaker_map[spk_tag]
+            spk = speaker_map.get(spk_tag, spk_tag)
             segment_out = wav_file_segmentation(
                 str(state.working_path),
                 spk_segments,
@@ -180,7 +180,7 @@ def core_analysis(
         end = item[1]
 
         for spk_tag, spk_segments in speakers.items():
-            if speaker == speaker_map[spk_tag]:
+            if speaker == speaker_map.get(spk_tag, spk_tag):
                 for segment in spk_segments:
                     if start == segment[0] and end == segment[1]:
                         common_segments.append([start, end, segment[2], speaker])

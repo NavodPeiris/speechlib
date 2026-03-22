@@ -96,7 +96,7 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
         file = (
             folder_name
             + "/"
-            + file_name.split("/")[-1].split(".")[0]
+            + os.path.splitext(os.path.basename(file_name))[0]
             + "_segment"
             + str(i)
             + ".wav"
