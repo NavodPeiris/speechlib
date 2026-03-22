@@ -63,7 +63,7 @@ def _run_under_profiler(step_name: str, fn, args, kwargs):
 
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        profile_memory=True,
+        profile_memory=False,
         record_shapes=False,
     ) as prof:
         with record_function(step_name):
@@ -75,7 +75,7 @@ def _run_under_profiler(step_name: str, fn, args, kwargs):
 
     avgs = prof.key_averages()
     cpu_ms  = sum(e.cpu_time_total  for e in avgs) / 1000   # µs → ms
-    cuda_ms = sum(e.cuda_time_total for e in avgs) / 1000
+    cuda_ms = sum(e.device_time_total for e in avgs) / 1000
 
     trace_path = _TRACES_DIR / f"{step_name}_trace.json"
     prof.export_chrome_trace(str(trace_path))
@@ -118,7 +118,7 @@ def measure(step_name: str):
 
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        profile_memory=True,
+        profile_memory=False,
         record_shapes=False,
     ) as prof:
         with record_function(step_name):
@@ -130,7 +130,7 @@ def measure(step_name: str):
 
     avgs = prof.key_averages()
     cpu_ms  = sum(e.cpu_time_total  for e in avgs) / 1000
-    cuda_ms = sum(e.cuda_time_total for e in avgs) / 1000
+    cuda_ms = sum(e.device_time_total for e in avgs) / 1000
 
     trace_path = _TRACES_DIR / f"{step_name}_trace.json"
     prof.export_chrome_trace(str(trace_path))
@@ -161,8 +161,8 @@ def print_report() -> None:
     col_pct  =  7
 
     header = (
-        f"{'Step':<{col_step}}  {'CPU time':>{col_ms}}  {'CUDA time':>{col_ms}}  "
-        f"{'CPU %':>{col_pct}}  {'CUDA %':>{col_pct}}  {'VRAM delta':>12}"
+        f"{'Step':<{col_step}}  {'CPU time':>{col_ms}}  {'Device time':>{col_ms}}  "
+        f"{'CPU %':>{col_pct}}  {'Dev %':>{col_pct}}  {'VRAM delta':>12}"
     )
     sep = "-" * len(header)
 

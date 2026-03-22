@@ -3,12 +3,14 @@ sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 from clearvoice import ClearVoice
 from .audio_state import AudioState
 from .step_timer import timed
+from .kernel_profiler import timed as ktimed
 
 _clearvoice_model = None
 _MODEL_NAME = "MossFormer2_SE_48K"
 
 
 @timed("enhance_audio")
+@ktimed("enhance_audio")
 def enhance_audio(state: AudioState) -> AudioState:
     """Aplica speech enhancement con ClearVoice MossFormer2_SE_48K.
 

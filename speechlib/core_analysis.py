@@ -4,6 +4,7 @@ import time
 from .wav_segmenter import wav_file_segmentation
 import torch
 from .step_timer import measure, print_report
+from .kernel_profiler import measure as kmeasure, print_report as kprint_report
 
 import torchaudio
 
@@ -71,7 +72,7 @@ def core_analysis(
 
     waveform, sample_rate = torchaudio.load(str(state.working_path))
     print("running diarization...")
-    with measure("diarization", gpu=True):
+    with measure("diarization", gpu=True), kmeasure("diarization"):
         diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
     print("diarization done.")
 
@@ -190,4 +191,5 @@ def core_analysis(
         write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
 
     print_report()
+    kprint_report()
     return common_segments
