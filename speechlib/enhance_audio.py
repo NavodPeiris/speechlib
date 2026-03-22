@@ -26,11 +26,13 @@ def enhance_audio(state: AudioState) -> AudioState:
 
     # Directorio de salida junto al archivo de trabajo
     out_dir = state.working_path.parent / (state.working_path.stem + "_enhanced_out")
-    _clearvoice_model(
+    result_audio = _clearvoice_model(
         input_path=str(state.working_path),
         output_path=str(out_dir),
-        online_write=True,
+        online_write=False,
     )
-    # ClearVoice escribe en: out_dir/MossFormer2_SE_48K/<original_filename>
+    # Escribir resultado manualmente despues de la inferencia GPU
     out_path = out_dir / _MODEL_NAME / state.working_path.name
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _clearvoice_model.write(result_audio, output_path=str(out_path))
     return state.model_copy(update={"working_path": out_path, "is_enhanced": True})
