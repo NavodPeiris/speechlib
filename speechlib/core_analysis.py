@@ -15,7 +15,7 @@ if not hasattr(torchaudio, "list_audio_backends"):
 
 from .speaker_recognition import speaker_recognition
 from .write_log_file import write_log_file
-from .segment_merger import merge_short_turns
+from .segment_merger import merge_short_turns, merge_transcript_turns
 
 from pathlib import Path
 from .audio_state import AudioState
@@ -195,6 +195,10 @@ def core_analysis(
                     for segment in spk_segments:
                         if start == segment[0] and end == segment[1]:
                             common_segments.append([start, end, segment[2], speaker])
+
+    # merge consecutive same-speaker turns after transcription
+    if model_type == "faster-whisper":
+        common_segments = merge_transcript_turns(common_segments)
 
     # writing log file
     with measure("write_log_file"):

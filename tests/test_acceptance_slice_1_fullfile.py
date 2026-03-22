@@ -17,9 +17,9 @@ def clear_cache():
 
 def _make_whisper_segments():
     """Simula segmentos whisper con timestamps: 3 chunks cubriendo 0-10s."""
-    seg1 = MagicMock(); seg1.start = 0.0; seg1.end = 3.5; seg1.text = "Hello world"
-    seg2 = MagicMock(); seg2.start = 3.5; seg2.end = 7.0; seg2.text = " how are you"
-    seg3 = MagicMock(); seg3.start = 7.0; seg3.end = 10.0; seg3.text = " goodbye"
+    seg1 = MagicMock(); seg1.start = 0.0; seg1.end = 3.5; seg1.text = "Hello world"; seg1.words = []
+    seg2 = MagicMock(); seg2.start = 3.5; seg2.end = 7.0; seg2.text = " how are you"; seg2.words = []
+    seg3 = MagicMock(); seg3.start = 7.0; seg3.end = 10.0; seg3.text = " goodbye"; seg3.words = []
     return [seg1, seg2, seg3]
 
 

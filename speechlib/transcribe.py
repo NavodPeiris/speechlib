@@ -39,19 +39,49 @@ def transcribe_full_aligned(file_name, segments, language, model_size, quantizat
 
     batched = BatchedInferencePipeline(model=model)
     whisper_segments, _ = batched.transcribe(
-        file_name, language=language, beam_size=1, batch_size=4
+        file_name, language=language, beam_size=1, batch_size=4,
+        word_timestamps=True,
     )
     whisper_segs = list(whisper_segments)
 
+    seg_texts = [[] for _ in segments]
+
+    for ws in whisper_segs:
+        words = getattr(ws, "words", None) or []
+        if words:
+            # Word-level assignment: each word goes to the diarization segment
+            # whose window contains the word midpoint.  Fallback to segment
+            # with maximum overlap when no segment contains the midpoint.
+            for word in words:
+                mid = (word.start + word.end) / 2
+                best_idx = -1
+                best_overlap = 0.0
+                for i, seg in enumerate(segments):
+                    if seg[0] <= mid <= seg[1]:
+                        best_idx = i
+                        break
+                    overlap = min(word.end, seg[1]) - max(word.start, seg[0])
+                    if overlap > best_overlap:
+                        best_overlap = overlap
+                        best_idx = i
+                if best_idx >= 0:
+                    seg_texts[best_idx].append(word.word.strip())
+        else:
+            # Fallback: segment-level exclusive assignment (no word timestamps)
+            best_idx = -1
+            best_overlap = 0.0
+            for i, seg in enumerate(segments):
+                overlap = min(ws.end, seg[1]) - max(ws.start, seg[0])
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_idx = i
+            if best_idx >= 0:
+                seg_texts[best_idx].append(ws.text)
+
     result = []
-    for seg in segments:
+    for i, seg in enumerate(segments):
         start_s, end_s, speaker = seg[0], seg[1], seg[2]
-        text_parts = []
-        for ws in whisper_segs:
-            overlap = min(ws.end, end_s) - max(ws.start, start_s)
-            if overlap > 0:
-                text_parts.append(ws.text)
-        text = "".join(text_parts).strip()
+        text = " ".join(seg_texts[i]).strip()
         result.append([start_s, end_s, text, speaker])
     return result
 

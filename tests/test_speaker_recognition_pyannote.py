@@ -9,12 +9,20 @@ from conftest import make_wav
 
 
 def test_extract_embedding_from_audio(tmp_path):
-    """Verify embedding extraction from audio file using pyannote."""
+    """Verify embedding extraction from audio file using pyannote.
+
+    Resetea los globals _inference/_embedding_model para aislar del orden
+    de ejecución de la suite (otro test puede haber inicializado el cache).
+    """
+    import speechlib.speaker_recognition as sr_mod
+
     audio_file = make_wav(tmp_path / "test.wav", n_frames=16000)
 
     with (
         patch("speechlib.speaker_recognition.Model") as mock_model_cls,
         patch("speechlib.speaker_recognition.Inference") as mock_inference_cls,
+        patch.object(sr_mod, "_inference", None),
+        patch.object(sr_mod, "_embedding_model", None),
     ):
         expected_embedding = np.random.rand(1, 512).astype(np.float32)
 
