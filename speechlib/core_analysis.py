@@ -4,6 +4,7 @@ import time
 from .wav_segmenter import wav_file_segmentation
 from .transcribe import transcribe_full_aligned
 import torch
+from functools import lru_cache
 from .step_timer import measure, print_report
 from .kernel_profiler import measure as kmeasure, print_report as kprint_report
 
@@ -24,6 +25,19 @@ from .convert_to_wav import convert_to_wav
 from .resample_to_16k import resample_to_16k
 from .loudnorm import loudnorm
 from .enhance_audio import enhance_audio
+
+
+@lru_cache(maxsize=1)
+def _get_diarization_pipeline(token: str):
+    """Cache el pipeline de diarizacion para evitar recargarlo en cada llamada."""
+    pipeline = Pipeline.from_pretrained(
+        "pyannote/speaker-diarization-3.1", token=token
+    )
+    if torch.cuda.is_available():
+        pipeline.to(torch.device("cuda"))
+    elif torch.backends.mps.is_available():
+        pipeline.to(torch.device("mps"))
+    return pipeline
 
 
 # by default use google speech-to-text API
@@ -57,19 +71,7 @@ def core_analysis(
 
     speaker_tags = []
 
-    pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-3.1", token=ACCESS_TOKEN
-    )
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-        os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-    else:
-        device = torch.device("cpu")
-
-    pipeline.to(device)
+    pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
 
     waveform, sample_rate = torchaudio.load(str(state.working_path))
     print("running diarization...")
