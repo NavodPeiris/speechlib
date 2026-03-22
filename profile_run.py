@@ -6,7 +6,7 @@ import os
 import sys
 
 os.environ["SPEECHLIB_PROFILE"]         = "1"
-os.environ["SPEECHLIB_PROFILE_KERNELS"] = "1"
+os.environ["SPEECHLIB_PROFILE_KERNELS"] = "0"   # off — evita overhead que contamina tiempos
 
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio")
 

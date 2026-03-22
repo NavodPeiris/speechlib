@@ -39,7 +39,7 @@ def transcribe_full_aligned(file_name, segments, language, model_size, quantizat
 
     batched = BatchedInferencePipeline(model=model)
     whisper_segments, _ = batched.transcribe(
-        file_name, language=language, beam_size=5, batch_size=16
+        file_name, language=language, beam_size=5, batch_size=4
     )
     whisper_segs = list(whisper_segments)
 
