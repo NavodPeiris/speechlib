@@ -107,7 +107,10 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
             test_emb = inference(file)
         except Exception as e:
             print(f"Error extracting embedding from segment: {e}")
-            os.remove(file)
+            try:
+                os.remove(file)
+            except OSError:
+                pass
             continue
 
         best_speaker = find_best_speaker(test_emb, speaker_embeddings)
