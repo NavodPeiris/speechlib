@@ -33,6 +33,14 @@ def _get_diarization_pipeline(token: str):
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1", token=token
     )
+    # Reducir over-segmentation: min_duration_off controla el gap minimo
+    # entre segmentos del mismo speaker antes de fusionarlos.
+    # Default de pyannote es ~0.09s, lo cual produce fragmentacion excesiva.
+    pipeline.instantiate({
+        "segmentation": {
+            "min_duration_off": 0.5,
+        },
+    })
     if torch.cuda.is_available():
         pipeline.to(torch.device("cuda"))
     elif torch.backends.mps.is_available():
