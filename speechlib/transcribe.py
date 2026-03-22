@@ -44,6 +44,14 @@ def transcribe_full_aligned(file_name, segments, language, model_size, quantizat
     )
     whisper_segs = list(whisper_segments)
 
+    # Forced alignment: refine word timestamps via Wav2Vec2 CTC
+    try:
+        from .forced_align import align_words
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        whisper_segs = align_words(file_name, whisper_segs, language, device)
+    except Exception:
+        pass  # fallback: use original Whisper timestamps
+
     seg_texts = [[] for _ in segments]
 
     for ws in whisper_segs:

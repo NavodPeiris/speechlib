@@ -1,6 +1,6 @@
-"""Tests: merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker."""
+"""Tests: merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker, absorb_micro_segments."""
 import pytest
-from speechlib.segment_merger import merge_short_turns, group_by_sentences, group_by_speaker
+from speechlib.segment_merger import merge_short_turns, group_by_sentences, group_by_speaker, absorb_micro_segments
 
 
 def test_merges_same_speaker_small_gap():
@@ -167,3 +167,77 @@ class TestGroupBySpeaker:
         result = group_by_speaker(segs)
         jolyon_segs = [s for s in result if s[3] == "Jolyon"]
         assert len(jolyon_segs) == 2
+
+
+# ---------------------------------------------------------------------------
+# absorb_micro_segments
+# ---------------------------------------------------------------------------
+
+class TestAbsorbMicroSegments:
+    """absorb_micro_segments absorbe segmentos < threshold en su vecino más largo."""
+
+    def test_micro_absorbed_into_longer_neighbor(self):
+        """Micro-segmento de speaker distinto se absorbe en el vecino más largo."""
+        segs = [
+            [0.0, 5.0, "SPEAKER_00"],   # 5.0s
+            [5.0, 5.2, "SPEAKER_01"],   # 0.2s ← micro
+            [5.2, 8.0, "SPEAKER_00"],   # 2.8s
+        ]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        assert len(result) == 2
+        # El micro fue absorbido: no queda ningún segmento de 0.2s
+        durations = [r[1] - r[0] for r in result]
+        assert all(d >= 0.3 for d in durations)
+
+    def test_micro_extends_longer_neighbor_timestamps(self):
+        """El vecino que absorbe el micro extiende su timestamp."""
+        segs = [
+            [0.0, 5.0, "SPEAKER_00"],   # 5.0s — más largo
+            [5.0, 5.1, "SPEAKER_01"],   # 0.1s ← micro
+            [5.1, 7.0, "SPEAKER_00"],   # 1.9s
+        ]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        # El micro se absorbe en el vecino izquierdo (más largo)
+        assert result[0][1] >= 5.1  # extendió su end
+
+    def test_segments_above_threshold_unchanged(self):
+        """Segmentos >= threshold no se tocan."""
+        segs = [
+            [0.0, 1.0, "SPEAKER_00"],
+            [1.0, 2.0, "SPEAKER_01"],
+            [2.0, 3.0, "SPEAKER_00"],
+        ]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        assert len(result) == 3
+
+    def test_empty_list(self):
+        assert absorb_micro_segments([], threshold=0.3) == []
+
+    def test_single_micro_segment(self):
+        """Un solo segmento micro no tiene vecino — se preserva."""
+        segs = [[0.0, 0.1, "SPEAKER_00"]]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        assert len(result) == 1
+
+    def test_consecutive_micros_both_absorbed(self):
+        """Dos micros consecutivos: ambos se absorben."""
+        segs = [
+            [0.0, 5.0, "SPEAKER_00"],
+            [5.0, 5.1, "SPEAKER_01"],   # micro
+            [5.1, 5.2, "SPEAKER_02"],   # micro
+            [5.2, 8.0, "SPEAKER_00"],
+        ]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        durations = [r[1] - r[0] for r in result]
+        assert all(d >= 0.3 for d in durations)
+
+    def test_preserves_speaker_of_absorbing_neighbor(self):
+        """El vecino que absorbe mantiene su speaker, no el del micro."""
+        segs = [
+            [0.0, 5.0, "SPEAKER_00"],
+            [5.0, 5.1, "SPEAKER_01"],   # micro
+            [5.1, 6.0, "SPEAKER_00"],
+        ]
+        result = absorb_micro_segments(segs, threshold=0.3)
+        speakers = [r[2] for r in result]
+        assert "SPEAKER_01" not in speakers

@@ -42,7 +42,7 @@ needs_hf = pytest.mark.skipif(bool(skip_reason), reason=" | ".join(skip_reason) 
 @pytest.fixture(scope="session")
 def run_result(tmp_path_factory):
     """
-    Corre core_analysis sobre obama_zach.wav con output_format='txt'.
+    Corre core_analysis sobre obama_zach.wav con output_format='vtt' (default).
 
     Usa un spy sobre merge_short_turns para capturar segmentos antes/después
     sin necesidad de una corrida extra del pipeline.
@@ -55,7 +55,7 @@ def run_result(tmp_path_factory):
 
     _get_faster_whisper_model.cache_clear()
 
-    log_dir = tmp_path_factory.mktemp("e2e_txt")
+    log_dir = tmp_path_factory.mktemp("e2e_vtt")
 
     merge_counts = {}
 
@@ -88,15 +88,15 @@ def run_result(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def run_result_srt(tmp_path_factory, run_result):
+def run_result_vtt(tmp_path_factory, run_result):
     """
-    Segunda corrida con output_format='srt'. Reutiliza el modelo ya cacheado
+    Segunda corrida con output_format='vtt'. Reutiliza el modelo ya cacheado
     (valida que el cache sobrevive entre llamadas de la misma sesión).
     """
     from speechlib.core_analysis import core_analysis
     from speechlib.transcribe import _get_faster_whisper_model
 
-    log_dir = tmp_path_factory.mktemp("e2e_srt")
+    log_dir = tmp_path_factory.mktemp("e2e_vtt2")
 
     cache_before = _get_faster_whisper_model.cache_info()
 
@@ -108,13 +108,13 @@ def run_result_srt(tmp_path_factory, run_result):
         modelSize="base",
         ACCESS_TOKEN=HF_TOKEN,
         model_type="faster-whisper",
-        output_format="srt",
+        output_format="vtt",
     )
 
     cache_after = _get_faster_whisper_model.cache_info()
     new_hits = cache_after.hits - cache_before.hits
     new_misses = cache_after.misses - cache_before.misses
-    print(f"\n[E2E SRT] nueva corrida: hits_nuevos={new_hits}, misses_nuevos={new_misses}")
+    print(f"\n[E2E VTT] nueva corrida: hits_nuevos={new_hits}, misses_nuevos={new_misses}")
 
     return result, log_dir, new_hits, new_misses
 
@@ -143,7 +143,7 @@ def test_v1_cache_hits_consistent_with_transcription_mode(run_result):
     Nota: antes de slice 1 (full-file transcription), hits > 0 porque el modelo
     se reutilizaba N veces (una por segmento). Ahora con una sola llamada a
     transcribe_full_aligned, hits=0 y miss=1 es el resultado esperado.
-    En la segunda corrida (SRT), el hit viene del cache entre corridas.
+    En la segunda corrida (VTT), el hit viene del cache entre corridas.
     """
     _, _, cache_info, _ = run_result
     assert cache_info.misses == 1, (
@@ -152,12 +152,12 @@ def test_v1_cache_hits_consistent_with_transcription_mode(run_result):
 
 
 @needs_hf
-def test_v1_second_run_uses_only_cache(run_result_srt):
+def test_v1_second_run_uses_only_cache(run_result_vtt):
     """
-    La segunda corrida (SRT) no construye un nuevo modelo:
+    La segunda corrida (VTT) no construye un nuevo modelo:
     todos sus accesos van a cache (misses_nuevos == 0).
     """
-    _, _, new_hits, new_misses = run_result_srt
+    _, _, new_hits, new_misses = run_result_vtt
     assert new_misses == 0, (
         f"La segunda corrida construyó {new_misses} instancias nuevas de WhisperModel. "
         "Se esperaba 0 — el modelo de la primera corrida debe sobrevivir entre llamadas."
@@ -222,51 +222,52 @@ def test_v2_segment_count_is_reasonable(run_result):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VENTAJA 3 — Salida SRT con timestamps SMPTE
-# Invariante: output_format='srt' produce bloques SRT válidos y bien formateados.
+# VENTAJA 3 — Salida VTT con timestamps WebVTT
+# Invariante: output_format='vtt' produce bloques VTT válidos y bien formateados.
 # ══════════════════════════════════════════════════════════════════════════════
 
 
 @needs_hf
-def test_v3_srt_file_created(run_result_srt):
-    """output_format='srt' crea exactamente un archivo .srt."""
-    _, log_dir, _, _ = run_result_srt
-    srt_files = list(Path(log_dir).glob("*.srt"))
-    assert len(srt_files) == 1, f"Se esperaba 1 .srt, encontrados: {srt_files}"
-    assert len(list(Path(log_dir).glob("*.txt"))) == 0, "No debe haber .txt en corrida SRT"
+def test_v3_vtt_file_created(run_result_vtt):
+    """output_format='vtt' crea exactamente un archivo .vtt."""
+    _, log_dir, _, _ = run_result_vtt
+    vtt_files = list(Path(log_dir).glob("*.vtt"))
+    assert len(vtt_files) == 1, f"Se esperaba 1 .vtt, encontrados: {vtt_files}"
+    assert len(list(Path(log_dir).glob("*.txt"))) == 0, "No debe haber .txt en corrida VTT"
 
 
 @needs_hf
-def test_v3_srt_starts_with_block_number_1(run_result_srt):
-    """El archivo SRT comienza con '1'."""
-    _, log_dir, _, _ = run_result_srt
-    content = list(Path(log_dir).glob("*.srt"))[0].read_text(encoding="utf-8")
-    assert content.strip().startswith("1"), (
-        f"El SRT no empieza con '1'. Primeros 100 chars:\n{content[:100]}"
+def test_v3_vtt_starts_with_webvtt_header(run_result_vtt):
+    """El archivo VTT comienza con 'WEBVTT'."""
+    _, log_dir, _, _ = run_result_vtt
+    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    assert content.startswith("WEBVTT"), (
+        f"El VTT no empieza con 'WEBVTT'. Primeros 100 chars:\n{content[:100]}"
     )
 
 
 @needs_hf
-def test_v3_srt_timestamps_are_smpte(run_result_srt):
-    """Los timestamps tienen formato SMPTE: HH:MM:SS,mmm --> HH:MM:SS,mmm."""
-    _, log_dir, _, _ = run_result_srt
-    content = list(Path(log_dir).glob("*.srt"))[0].read_text(encoding="utf-8")
-    pattern = r"\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}"
+def test_v3_vtt_timestamps_use_dot(run_result_vtt):
+    """Los timestamps tienen formato VTT: HH:MM:SS.mmm --> HH:MM:SS.mmm (punto, no coma)."""
+    _, log_dir, _, _ = run_result_vtt
+    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    pattern = r"\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}"
     matches = re.findall(pattern, content)
     assert len(matches) >= 1, (
-        f"No se encontraron timestamps SMPTE. Primeros 300 chars:\n{content[:300]}"
+        f"No se encontraron timestamps VTT. Primeros 300 chars:\n{content[:300]}"
     )
+    assert "," not in content.split("WEBVTT")[1], "No debe haber comas en timestamps VTT"
 
 
 @needs_hf
-def test_v3_srt_block_structure_is_valid(run_result_srt):
-    """Cada bloque SRT tiene: número, línea -->, texto con speaker, línea vacía."""
-    _, log_dir, _, _ = run_result_srt
-    content = list(Path(log_dir).glob("*.srt"))[0].read_text(encoding="utf-8")
-    blocks = [b.strip() for b in content.strip().split("\n\n") if b.strip()]
-    assert len(blocks) >= 1, "No se encontraron bloques SRT"
+def test_v3_vtt_block_structure_is_valid(run_result_vtt):
+    """Cada bloque VTT tiene: número, línea -->, texto con speaker."""
+    _, log_dir, _, _ = run_result_vtt
+    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    blocks = [b.strip() for b in content.strip().split("\n\n") if b.strip() and b.strip() != "WEBVTT"]
+    assert len(blocks) >= 1, "No se encontraron bloques VTT"
 
-    for i, block in enumerate(blocks[:5], start=1):  # revisar hasta 5 bloques
+    for i, block in enumerate(blocks[:5], start=1):
         lines = block.split("\n")
         assert lines[0] == str(i), f"Bloque {i}: primera línea debe ser '{i}', es '{lines[0]}'"
         assert "-->" in lines[1], f"Bloque {i}: segunda línea debe tener '-->', es '{lines[1]}'"
@@ -277,13 +278,13 @@ def test_v3_srt_block_structure_is_valid(run_result_srt):
 
 
 @needs_hf
-def test_v3_txt_still_works_by_default(run_result):
-    """La corrida por defecto (sin output_format) crea un .txt, no un .srt."""
+def test_v3_vtt_is_default_format(run_result):
+    """La corrida por defecto (sin output_format) crea un .vtt, no un .txt."""
     _, log_dir, _, _ = run_result
+    vtt_files = list(Path(log_dir).glob("*.vtt"))
     txt_files = list(Path(log_dir).glob("*.txt"))
-    srt_files = list(Path(log_dir).glob("*.srt"))
-    assert len(txt_files) == 1, f"Se esperaba 1 .txt, encontrados: {txt_files}"
-    assert len(srt_files) == 0, f"No debe haber .srt en corrida por defecto"
+    assert len(vtt_files) == 1, f"Se esperaba 1 .vtt por defecto, encontrados: {vtt_files}"
+    assert len(txt_files) == 0, f"No debe haber .txt en corrida por defecto"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -362,7 +363,6 @@ def test_v4_segments_with_duration_have_text(run_result):
     algunos zero-duration que producen texto vacío — son aceptables).
     """
     result, _, _, _ = run_result
-    zero_dur = [s for s in result if s[1] <= s[0]]
     with_dur = [s for s in result if s[1] > s[0]]
     empty_with_dur = [s for s in with_dur if not s[2].strip()]
     # Al menos el 70% de los segmentos con duración deben tener texto
@@ -380,14 +380,14 @@ def test_v4_segments_with_duration_have_text(run_result):
 
 
 @needs_hf
-def test_summary_print(run_result, run_result_srt):
+def test_summary_print(run_result, run_result_vtt):
     """Imprime resumen de los 4 invariantes para inspección manual."""
-    result, log_dir_txt, cache_info, merge_counts = run_result
-    _, log_dir_srt, new_hits_srt, new_misses_srt = run_result_srt
+    result, log_dir_vtt_default, cache_info, merge_counts = run_result
+    _, log_dir_vtt2, new_hits_vtt, new_misses_vtt = run_result_vtt
 
     speakers = {seg[3] for seg in result}
-    srt_content = list(Path(log_dir_srt).glob("*.srt"))[0].read_text(encoding="utf-8")
-    srt_blocks = [b for b in srt_content.strip().split("\n\n") if b.strip()]
+    vtt_content = list(Path(log_dir_vtt2).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    vtt_blocks = [b for b in vtt_content.strip().split("\n\n") if b.strip() and b.strip() != "WEBVTT"]
 
     violations = sum(
         1
@@ -400,10 +400,10 @@ def test_summary_print(run_result, run_result_srt):
     print("  RESUMEN E2E — Ventajas wx3 en speechlib")
     print("=" * 60)
     print(f"  V1 Caching   hits={cache_info.hits}, misses={cache_info.misses} "
-          f"| 2ª corrida: hits_nuevos={new_hits_srt}, misses_nuevos={new_misses_srt}")
+          f"| 2ª corrida: hits_nuevos={new_hits_vtt}, misses_nuevos={new_misses_vtt}")
     print(f"  V2 Pyannote  {len(result)} segmentos, {len(speakers)} locutores: {speakers}")
-    print(f"  V3 SRT       {len(srt_blocks)} bloques | "
-          f".srt={list(Path(log_dir_srt).glob('*.srt'))[0].name}")
+    print(f"  V3 VTT       {len(vtt_blocks)} bloques | "
+          f".vtt={list(Path(log_dir_vtt2).glob('*.vtt'))[0].name}")
     before = merge_counts.get("before", "?")
     after = merge_counts.get("after", "?")
     pct = f"{(before - after) / before * 100:.1f}%" if isinstance(before, int) and before else "?"

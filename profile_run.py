@@ -1,6 +1,6 @@
 """
 Runs the full speechlib pipeline on the reference MP3 with step_timer profiling.
-Output SRT is written to the same directory as the input audio file.
+Output VTT is written to the output/ subdirectory relative to the audio file.
 """
 import os
 import sys
@@ -30,6 +30,6 @@ grouping_mode = "speaker" if args.speaker_grouping else "sentences"
 result = core_analysis(
     FILE, VOICES, None, LANGUAGE, MODEL_SIZE, TOKEN,
     "faster-whisper", quantization=False, skip_enhance=args.skip_enhance,
-    output_format="srt", grouping_mode=grouping_mode,
+    output_format="vtt", grouping_mode=grouping_mode,
 )
 print(f"\nSegments transcribed: {len(result)}")

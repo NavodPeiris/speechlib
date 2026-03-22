@@ -15,7 +15,7 @@ if not hasattr(torchaudio, "list_audio_backends"):
 
 from .speaker_recognition import speaker_recognition
 from .write_log_file import write_log_file
-from .segment_merger import merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker
+from .segment_merger import merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker, absorb_micro_segments
 
 from pathlib import Path
 from .audio_state import AudioState
@@ -54,7 +54,7 @@ def core_analysis(
     custom_model_path=None,
     hf_model_id=None,
     aai_api_key=None,
-    output_format: str = "txt",
+    output_format: str = "vtt",
     skip_enhance: bool = False,
     grouping_mode: str = "sentences",
 ):
@@ -155,7 +155,8 @@ def core_analysis(
         del speakers[key]
         del speaker_map[key]
 
-    # merge short consecutive turns from the same speaker
+    # absorb micro-segments into longer neighbors, then merge same-speaker turns
+    common = absorb_micro_segments(common)
     common = merge_short_turns(common)
     speakers = {}
     for segment in common:

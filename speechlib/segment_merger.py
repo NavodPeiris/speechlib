@@ -91,6 +91,59 @@ def merge_transcript_turns(segments: list, max_gap_s: float = 2.0) -> list:
     return result
 
 
+def absorb_micro_segments(common: list, threshold: float = 0.3) -> list:
+    """Absorbe segmentos < threshold en su vecino más largo, sin importar speaker.
+
+    El vecino que absorbe extiende su timestamp para cubrir el rango del micro.
+    El speaker del micro desaparece — el vecino mantiene su speaker.
+    """
+    if not common:
+        return []
+
+    segments = [list(s) for s in common]
+    absorbed = set()
+
+    for i, seg in enumerate(segments):
+        duration = seg[1] - seg[0]
+        if duration >= threshold:
+            continue
+
+        # Buscar vecino más largo (izquierdo o derecho, no absorbido)
+        left_dur = 0.0
+        left_idx = None
+        for j in range(i - 1, -1, -1):
+            if j not in absorbed:
+                left_idx = j
+                left_dur = segments[j][1] - segments[j][0]
+                break
+
+        right_dur = 0.0
+        right_idx = None
+        for j in range(i + 1, len(segments)):
+            if j not in absorbed:
+                right_idx = j
+                right_dur = segments[j][1] - segments[j][0]
+                break
+
+        if left_idx is None and right_idx is None:
+            continue  # solo queda este segmento, preservar
+
+        # Absorber en el vecino más largo
+        if left_dur >= right_dur and left_idx is not None:
+            target = left_idx
+        elif right_idx is not None:
+            target = right_idx
+        else:
+            target = left_idx
+
+        # Extender timestamps del vecino
+        segments[target][0] = min(segments[target][0], seg[0])
+        segments[target][1] = max(segments[target][1], seg[1])
+        absorbed.add(i)
+
+    return [seg for i, seg in enumerate(segments) if i not in absorbed]
+
+
 def merge_short_turns(common: list, max_gap_s: float = 0.5) -> list:
     """Fusiona turnos consecutivos del mismo locutor si el gap es < max_gap_s."""
     if not common:

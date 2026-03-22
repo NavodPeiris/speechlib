@@ -76,3 +76,4 @@ htmlcov/
 
 # Pretrained models (downloaded)
 pretrained_models/
+transcript_samples/
