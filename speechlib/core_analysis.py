@@ -55,6 +55,7 @@ def core_analysis(
     hf_model_id=None,
     aai_api_key=None,
     output_format: str = "txt",
+    skip_enhance: bool = False,
 ):
 
     # <-------------------PreProcessing file-------------------------->
@@ -65,7 +66,8 @@ def core_analysis(
     state = re_encode(state)
     state = resample_to_16k(state)
     state = loudnorm(state)
-    state = enhance_audio(state)
+    if not skip_enhance:
+        state = enhance_audio(state)
 
     # <--------------------running analysis--------------------------->
 
