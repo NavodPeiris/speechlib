@@ -13,6 +13,49 @@ def _get_faster_whisper_model(model_size: str, device: str, compute_type: str) -
     return WhisperModel(model_size, device=device, compute_type=compute_type)
 
 
+def transcribe_full_aligned(file_name, segments, language, model_size, quantization):
+    """Transcribe el audio completo de una vez y mapea texto por overlap de timestamp.
+
+    En lugar de llamar a transcribe() N veces (una por segmento), esta funcion:
+    1. Llama a batched.transcribe() UNA sola vez con el audio completo
+    2. Mapea el texto resultante a cada segmento de diarizacion por overlap temporal
+
+    Args:
+        file_name: ruta al archivo de audio
+        segments: lista de [start, end, speaker] de diarizacion
+        language: codigo de idioma
+        model_size: tamano del modelo whisper
+        quantization: si usar cuantizacion
+
+    Returns:
+        lista de [start, end, text, speaker]
+    """
+    if torch.cuda.is_available():
+        compute_type = "int8_float16" if quantization else "float16"
+        model = _get_faster_whisper_model(model_size, "cuda", compute_type)
+    else:
+        compute_type = "int8" if quantization else "float32"
+        model = _get_faster_whisper_model(model_size, "cpu", compute_type)
+
+    batched = BatchedInferencePipeline(model=model)
+    whisper_segments, _ = batched.transcribe(
+        file_name, language=language, beam_size=5, batch_size=16
+    )
+    whisper_segs = list(whisper_segments)
+
+    result = []
+    for seg in segments:
+        start_s, end_s, speaker = seg[0], seg[1], seg[2]
+        text_parts = []
+        for ws in whisper_segs:
+            overlap = min(ws.end, end_s) - max(ws.start, start_s)
+            if overlap > 0:
+                text_parts.append(ws.text)
+        text = "".join(text_parts).strip()
+        result.append([start_s, end_s, text, speaker])
+    return result
+
+
 def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
     res = ""
     if language in ["si", "Si"]:

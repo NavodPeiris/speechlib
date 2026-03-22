@@ -2,6 +2,7 @@ import os
 from pyannote.audio import Pipeline
 import time
 from .wav_segmenter import wav_file_segmentation
+from .transcribe import transcribe_full_aligned
 import torch
 from .step_timer import measure, print_report
 from .kernel_profiler import measure as kmeasure, print_report as kprint_report
@@ -157,34 +158,39 @@ def core_analysis(
     # transcribing the texts differently according to speaker
     print("running transcription...")
     with measure("transcription", gpu=True):
-        for spk_tag, spk_segments in speakers.items():
-            spk = speaker_map.get(spk_tag, spk_tag)
-            segment_out = wav_file_segmentation(
-                str(state.working_path),
-                spk_segments,
-                language,
-                modelSize,
-                model_type,
-                quantization,
-                custom_model_path,
-                hf_model_id,
-                aai_api_key,
+        if model_type == "faster-whisper":
+            common_segments = transcribe_full_aligned(
+                str(state.working_path), common, language, modelSize, quantization
             )
-            speakers[spk_tag] = segment_out
+        else:
+            for spk_tag, spk_segments in speakers.items():
+                spk = speaker_map.get(spk_tag, spk_tag)
+                segment_out = wav_file_segmentation(
+                    str(state.working_path),
+                    spk_segments,
+                    language,
+                    modelSize,
+                    model_type,
+                    quantization,
+                    custom_model_path,
+                    hf_model_id,
+                    aai_api_key,
+                )
+                speakers[spk_tag] = segment_out
     print("transcription done.")
 
-    common_segments = []
+    if model_type != "faster-whisper":
+        common_segments = []
+        for item in common:
+            speaker = item[2]
+            start = item[0]
+            end = item[1]
 
-    for item in common:
-        speaker = item[2]
-        start = item[0]
-        end = item[1]
-
-        for spk_tag, spk_segments in speakers.items():
-            if speaker == speaker_map.get(spk_tag, spk_tag):
-                for segment in spk_segments:
-                    if start == segment[0] and end == segment[1]:
-                        common_segments.append([start, end, segment[2], speaker])
+            for spk_tag, spk_segments in speakers.items():
+                if speaker == speaker_map.get(spk_tag, spk_tag):
+                    for segment in spk_segments:
+                        if start == segment[0] and end == segment[1]:
+                            common_segments.append([start, end, segment[2], speaker])
 
     # writing log file
     with measure("write_log_file"):

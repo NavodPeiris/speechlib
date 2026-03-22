@@ -137,12 +137,17 @@ def test_v1_model_constructed_only_once(run_result):
 
 
 @needs_hf
-def test_v1_cache_hits_above_zero(run_result):
-    """El modelo fue reutilizado desde cache (hits > 0) durante la transcripción."""
+def test_v1_cache_hits_consistent_with_transcription_mode(run_result):
+    """Con transcribe_full_aligned, el modelo se usa 1 sola vez (miss=1, hits>=0).
+
+    Nota: antes de slice 1 (full-file transcription), hits > 0 porque el modelo
+    se reutilizaba N veces (una por segmento). Ahora con una sola llamada a
+    transcribe_full_aligned, hits=0 y miss=1 es el resultado esperado.
+    En la segunda corrida (SRT), el hit viene del cache entre corridas.
+    """
     _, _, cache_info, _ = run_result
-    assert cache_info.hits > 0, (
-        f"cache hits={cache_info.hits}. El modelo no fue reutilizado. "
-        "Probablemente obama_zach.wav solo tiene 1 segmento de transcripción."
+    assert cache_info.misses == 1, (
+        f"Se esperaba 1 miss (una sola construcción), hubo {cache_info.misses}."
     )
 
 
