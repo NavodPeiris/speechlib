@@ -2,11 +2,13 @@ import sys
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 from clearvoice import ClearVoice
 from .audio_state import AudioState
+from .pipeline_profiler import timed
 
 _clearvoice_model = None
 _MODEL_NAME = "MossFormer2_SE_48K"
 
 
+@timed("enhance_audio")
 def enhance_audio(state: AudioState) -> AudioState:
     """Aplica speech enhancement con ClearVoice MossFormer2_SE_48K.
 

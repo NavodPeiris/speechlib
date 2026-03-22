@@ -1,9 +1,11 @@
 import torchaudio
 from .audio_state import AudioState
+from .pipeline_profiler import timed
 
 TARGET_SR = 16000
 
 
+@timed("resample_to_16k")
 def resample_to_16k(state: AudioState) -> AudioState:
     waveform, sr = torchaudio.load(str(state.working_path))
     if sr == TARGET_SR:

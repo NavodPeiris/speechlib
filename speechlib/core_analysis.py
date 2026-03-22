@@ -3,6 +3,7 @@ from pyannote.audio import Pipeline
 import time
 from .wav_segmenter import wav_file_segmentation
 import torch
+from .pipeline_profiler import measure, print_report
 
 import torchaudio
 
@@ -69,12 +70,10 @@ def core_analysis(
     pipeline.to(device)
 
     waveform, sample_rate = torchaudio.load(str(state.working_path))
-    start_time = int(time.time())
     print("running diarization...")
-    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
-    end_time = int(time.time())
-    elapsed_time = int(end_time - start_time)
-    print(f"diarization done. Time taken: {elapsed_time} seconds.")
+    with measure("diarization", gpu=True):
+        diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+    print("diarization done.")
 
     speakers = {}
 
@@ -155,25 +154,23 @@ def core_analysis(
         speakers[spk].append(segment)
 
     # transcribing the texts differently according to speaker
-    start_time = int(time.time())
     print("running transcription...")
-    for spk_tag, spk_segments in speakers.items():
-        spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(
-            str(state.working_path),
-            spk_segments,
-            language,
-            modelSize,
-            model_type,
-            quantization,
-            custom_model_path,
-            hf_model_id,
-            aai_api_key,
-        )
-        speakers[spk_tag] = segment_out
-    end_time = int(time.time())
-    elapsed_time = int(end_time - start_time)
-    print(f"transcription done. Time taken: {elapsed_time} seconds.")
+    with measure("transcription", gpu=True):
+        for spk_tag, spk_segments in speakers.items():
+            spk = speaker_map[spk_tag]
+            segment_out = wav_file_segmentation(
+                str(state.working_path),
+                spk_segments,
+                language,
+                modelSize,
+                model_type,
+                quantization,
+                custom_model_path,
+                hf_model_id,
+                aai_api_key,
+            )
+            speakers[spk_tag] = segment_out
+    print("transcription done.")
 
     common_segments = []
 
@@ -189,6 +186,8 @@ def core_analysis(
                         common_segments.append([start, end, segment[2], speaker])
 
     # writing log file
-    write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
+    with measure("write_log_file"):
+        write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
 
+    print_report()
     return common_segments
