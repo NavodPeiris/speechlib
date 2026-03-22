@@ -85,12 +85,48 @@ preprocessing  <1%
 
 ---
 
-## Próximos pasos recomendados
+## Optimizaciones implementadas (2026-03-22)
 
-| Prioridad | Acción | Herramienta |
+### Slice 1 — Full-file transcription con timestamp alignment (impacto estimado: ~55s)
+- **Antes:** 92 llamadas a `batched.transcribe()`, cada una lee el WAV completo, escribe temp, batch=1 efectivo.
+- **Despues:** 1 sola llamada a `transcribe_full_aligned()` con el audio completo, batch_size=16 real.
+- **Mapeo:** whisper segments se alinean a segmentos de diarizacion por overlap temporal.
+- **Commit:** `56cfff2` — AT: `test_acceptance_slice_1_fullfile.py` (5 tests)
+
+### Slice 2 — Cache pyannote pipeline (impacto estimado: 2-4s por archivo)
+- **Antes:** `Pipeline.from_pretrained()` en cada llamada a `core_analysis`.
+- **Despues:** `@lru_cache(maxsize=1)` en `_get_diarization_pipeline()`.
+- **Commit:** `6ba6bf8` — AT: `test_acceptance_pyannote_cache.py` (2 tests)
+
+### Slice 3 — enhance_audio online_write=False (impacto estimado: 8-10s)
+- **Antes:** `online_write=True` causa I/O sincrono durante inferencia GPU.
+- **Despues:** `online_write=False` + `write()` manual post-inferencia.
+- **Commit:** `2e4b3f9` — AT: `test_acceptance_enhance_offline.py` (2 tests)
+
+### Slice 4 — Evaluar necesidad de SE (benchmark A/B)
+- Pendiente: ejecutar `python profile_run.py` con `skip_enhance=True` y comparar calidad.
+
+### Slice 5 — Tuning diarizacion min_duration_off=0.5s (impacto cascada: ~17s en transcripcion)
+- **Antes:** default pyannote min_duration_off ~0.09s → over-segmentation.
+- **Despues:** `pipeline.instantiate({"segmentation": {"min_duration_off": 0.5}})`.
+- **Commit:** `e65ee30` — AT: `test_acceptance_diarization_tuning.py` (1 test)
+
+### Impacto total estimado (pendiente benchmark real)
+- Transcripcion: ~55s ahorro (full-file + batching real)
+- Diarizacion cascada: ~17s (menos segmentos → menos trabajo)
+- Enhance audio: ~8-10s (I/O desacoplado)
+- Cache pyannote: ~2-4s por archivo
+- **Total estimado: ~82-86s ahorro → de 118.9s a ~33-37s**
+
+Para medir el impacto real: `python profile_run.py`
+
+---
+
+## Proximos pasos recomendados
+
+| Prioridad | Accion | Herramienta |
 |---|---|---|
-| Alta | Perfilar internos de transcription (CPU vs CUDA por kernel) | `kernel_profiler.py` + `SPEECHLIB_PROFILE_KERNELS=1` |
-| Alta | Probar large-v2 vs large-v3 en calidad/velocidad | benchmark manual |
-| Media | Verificar si enhance_audio es I/O-bound o GPU-bound | `kernel_profiler.py` |
-| Media | Analizar duración media de segmentos — ¿justifica merge más agresivo? | inspección de `common` |
-| Baja | Medir pico real de VRAM en proceso frío | reiniciar proceso + step_timer |
+| Alta | Ejecutar benchmark real post-optimizaciones | `python profile_run.py` |
+| Alta | Evaluar skip_enhance A/B (Slice 4) | `python profile_run.py --skip-enhance` |
+| Media | Probar large-v2 vs large-v3 en calidad/velocidad | benchmark manual |
+| Baja | Medir pico real de VRAM en proceso frio | reiniciar proceso + step_timer |
