@@ -1,7 +1,7 @@
 import torch
 import torchaudio
 from .audio_state import AudioState
-from .pipeline_profiler import timed
+from .step_timer import timed
 
 TARGET_LUFS = -14.0
 TRUE_PEAK_DB = -1.0

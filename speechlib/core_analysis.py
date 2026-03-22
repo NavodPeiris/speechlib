@@ -3,7 +3,7 @@ from pyannote.audio import Pipeline
 import time
 from .wav_segmenter import wav_file_segmentation
 import torch
-from .pipeline_profiler import measure, print_report
+from .step_timer import measure, print_report
 
 import torchaudio
 

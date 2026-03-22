@@ -1,6 +1,6 @@
 import torchaudio
 from .audio_state import AudioState
-from .pipeline_profiler import timed
+from .step_timer import timed
 
 TARGET_SR = 16000
 

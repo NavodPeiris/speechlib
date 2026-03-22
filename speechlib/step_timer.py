@@ -1,13 +1,17 @@
 """
-Pipeline profiler — zero overhead in production.
+Step-level wall-time and VRAM profiler.
 
 Activate with:
     SPEECHLIB_PROFILE=1 python process_audio.py
 
-Provides:
-    @timed(step_name)   — decorator for functions
-    measure(name, gpu)  — context manager for inline blocks
-    print_report()      — tabular summary at end of pipeline
+Reports elapsed time per pipeline step plus GPU VRAM before/after for GPU steps.
+Zero overhead when the env var is unset.
+
+API:
+    @timed(step_name)        — decorator for functions
+    measure(step_name, gpu)  — context manager for inline blocks
+    print_report()           — tabular summary at end of pipeline
+    reset()                  — clear measurements (useful in tests)
 """
 import os
 import time
@@ -25,7 +29,7 @@ _GPU_STEPS = {"enhance_audio", "diarization", "transcription"}
 _records: list[dict] = []
 
 
-def _profiling_enabled() -> bool:
+def _enabled() -> bool:
     return os.environ.get("SPEECHLIB_PROFILE", "0") not in ("0", "", "false", "False")
 
 
@@ -50,11 +54,11 @@ def _record(step: str, elapsed: float, mem_before: float | None, mem_after: floa
 
 
 def timed(step_name: str):
-    """Decorator — wraps any function to record its wall time (+ VRAM for GPU steps)."""
+    """Decorator — records wall time (and VRAM for GPU steps) of a function."""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if not _profiling_enabled():
+            if not _enabled():
                 return func(*args, **kwargs)
 
             is_gpu = step_name in _GPU_STEPS
@@ -78,8 +82,8 @@ def timed(step_name: str):
 
 @contextmanager
 def measure(step_name: str, gpu: bool = False):
-    """Context manager — records timing for an inline block."""
-    if not _profiling_enabled():
+    """Context manager — records wall time of an inline block."""
+    if not _enabled():
         yield
         return
 
@@ -99,13 +103,13 @@ def measure(step_name: str, gpu: bool = False):
 
 
 def reset() -> None:
-    """Clear all recorded measurements (useful between pipeline runs in tests)."""
+    """Clear all measurements (useful between pipeline runs in tests)."""
     _records.clear()
 
 
 def print_report() -> None:
-    """Print tabular profiling report. No-op when profiling is disabled."""
-    if not _profiling_enabled() or not _records:
+    """Print tabular timing report. No-op when profiling is disabled."""
+    if not _enabled() or not _records:
         return
 
     col_step = 24
@@ -119,14 +123,13 @@ def print_report() -> None:
     sep = "-" * len(header)
 
     print()
-    print("=== Pipeline Profiling Report ===")
+    print("=== Step Timer Report ===")
     print()
     print(header)
     print(sep)
 
     total = 0.0
     for r in _records:
-        name    = r["step"]
         elapsed = r["elapsed"]
         total  += elapsed
         mb_b    = r["mem_before"]
@@ -135,17 +138,13 @@ def print_report() -> None:
         t_str = f"{elapsed:.3f}s"
         b_str = f"{mb_b:.0f} MB" if mb_b is not None else "-"
         a_str = f"{mb_a:.0f} MB" if mb_a is not None else "-"
-        if mb_b is not None and mb_a is not None:
-            delta = mb_a - mb_b
-            d_str = f"{delta:+.0f} MB"
-        else:
-            d_str = "-"
+        d_str = f"{mb_a - mb_b:+.0f} MB" if mb_b is not None and mb_a is not None else "-"
 
         print(
-            f"{name:<{col_step}}  {t_str:>{col_time}}  "
+            f"{r['step']:<{col_step}}  {t_str:>{col_time}}  "
             f"{b_str:>{col_mem}}  {a_str:>{col_mem}}  {d_str:>{col_mem}}"
         )
 
-    print("-" * len(header))
+    print(sep)
     print(f"{'TOTAL':<{col_step}}  {total:.3f}s")
     print()
