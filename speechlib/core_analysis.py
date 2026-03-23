@@ -25,6 +25,7 @@ from .convert_to_wav import convert_to_wav
 from .resample_to_16k import resample_to_16k
 from .loudnorm import loudnorm
 from .enhance_audio import enhance_audio
+from .compress_audio import compress_audio
 
 
 @lru_cache(maxsize=1)
@@ -47,7 +48,7 @@ def core_analysis(
     voices_folder,
     log_folder,
     language,
-    modelSize="large-v3",
+    modelSize="large-v3-turbo",
     ACCESS_TOKEN=None,
     model_type="faster-whisper",
     quantization=False,
@@ -56,6 +57,7 @@ def core_analysis(
     aai_api_key=None,
     output_format: str = "vtt",
     skip_enhance: bool = False,
+    compress: bool = False,
     grouping_mode: str = "sentences",
 ):
     if log_folder is None:
@@ -73,6 +75,8 @@ def core_analysis(
     state = loudnorm(state)
     if not skip_enhance:
         state = enhance_audio(state)
+    if compress:
+        compress_audio(state.working_path, state.source_path.with_suffix(".m4a"))
 
     # <--------------------running analysis--------------------------->
 
