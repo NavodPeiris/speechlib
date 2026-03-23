@@ -1,4 +1,5 @@
 import os
+import threading
 from pyannote.audio import Pipeline
 import time
 from .wav_segmenter import wav_file_segmentation
@@ -75,10 +76,18 @@ def core_analysis(
     state = loudnorm(state)
     if not skip_enhance:
         state = enhance_audio(state)
-    if compress:
-        compress_audio(state.working_path, state.source_path.with_suffix(".m4a"))
 
     # <--------------------running analysis--------------------------->
+
+    # Launch compression in background thread (CPU) while diarization runs (GPU)
+    compress_thread = None
+    if compress:
+        compress_thread = threading.Thread(
+            target=compress_audio,
+            args=(state.working_path, state.source_path.with_suffix(".m4a")),
+            daemon=True,
+        )
+        compress_thread.start()
 
     speaker_tags = []
 
@@ -216,6 +225,10 @@ def core_analysis(
     # writing log file
     with measure("write_log_file"):
         write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
+
+    # Wait for background compression to finish
+    if compress_thread is not None:
+        compress_thread.join()
 
     print_report()
     kprint_report()
