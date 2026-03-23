@@ -37,6 +37,49 @@ include = ["speechlib*"]
 markers = [
     "e2e: end-to-end tests that require HF_TOKEN and real audio (slow)",
 ]
+testiq_output = "testiq_coverage.json"
+
+[tool.testiq]
+threshold = 0.3
+max_duplicates = 0
+
+[tool.importlinter]
+root_package = "speechlib"
+
+[[tool.importlinter.contracts]]
+name = "public-api"
+type = "public-api"
+is_public = true
+
+[[tool.importlinter.contracts]]
+name = "no-circular"
+type = "no-circular-dependencies"
+
+[[tool.importlinter.contracts]]
+name = "preprocessing-isolation"
+type = "independent"
+containers = [
+    "speechlib.convert_to_wav",
+    "speechlib.convert_to_mono",
+    "speechlib.re_encode",
+    "speechlib.resample_to_16k",
+    "speechlib.loudnorm",
+    "speechlib.enhance_audio",
+]
+
+[[tool.importlinter.contracts]]
+name = "audio-utils-isolation"
+type = "independent"
+containers = [
+    "speechlib.audio_utils",
+]
+
+[[tool.importlinter.contracts]]
+name = "segmentation-isolation"
+type = "independent"
+containers = [
+    "speechlib.segment_merger",
+]
 
 [project.urls]
 Homepage = "https://github.com/NavodPeiris/speechlib"

@@ -1,6 +1,6 @@
 # SpeechLib: Architecture & Process Flow
 
-**Version:** 2.6
+**Version:** 2.7
 **Updated:** 2026-03-21
 
 ---
@@ -41,12 +41,16 @@ Modules
   ├── resample_to_16k.py     any SR → 16 kHz   (torchaudio.functional.resample)
   ├── loudnorm.py            EBU R128 → -14 LUFS true peak -1 dB (torchaudio)
   ├── enhance_audio.py       speech enhancement MossFormer2_SE_48K (ClearVoice)
+  ├── compress_audio.py      AAC archival copy (96kbps mono 16kHz) (torchcodec)
   ├── segment_merger.py      merge_short_turns — post-diarization segment merging
   ├── wav_segmenter.py       slice + transcribe per segment (torchaudio)
   ├── speaker_recognition.py  pyannote embedding + cosine similarity
   ├── transcribe.py          multi-backend transcription (LRU-cached models)
   ├── whisper_sinhala.py     Sinhala-specific HF pipeline
-  └── write_log_file.py      transcript → .txt or .srt
+  ├── write_log_file.py      transcript → .txt or .srt
+  ├── kernel_profiler.py     CPU/GPU profiling utilities
+  ├── step_timer.py          timing decorators and reporting
+  └── scalene_runner.py      memory/CPU profiling with Scalene
 ```
 
 ---
@@ -271,6 +275,21 @@ state = my_step(state)
 
 ---
 
+## Compression Pipeline (Optional)
+
+After transcription, audio can be archived as AAC:
+
+```
+Input: WAV, mono, 16kHz (from loudnorm output)
+    │
+    ▼ compress_audio()
+Output: AAC, mono, 96kbps, 16kHz
+```
+
+Uses `torchcodec` (PyTorch-native) instead of FFmpeg subprocess.
+
+---
+
 ## Technology Stack
 
 | Library | Use |
@@ -278,6 +297,7 @@ state = my_step(state)
 | `pydantic` | AudioState model (v2, ConfigDict) |
 | `torchaudio` | format conversion, waveform loading, audio slicing |
 | `torch` | device management, tensor ops |
+| `torchcodec` | AAC encoding for archival copies |
 | `wave` | WAV read/write (mono conversion, re-encoding) |
 | `numpy` | stereo→mono mix-down |
 | `pyannote.audio` 4.x | speaker diarization (`speaker-diarization-3.1`, `token=` auth) and embedding extraction |
