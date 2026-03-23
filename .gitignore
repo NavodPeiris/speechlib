@@ -77,3 +77,10 @@ htmlcov/
 # Pretrained models (downloaded)
 pretrained_models/
 transcript_samples/
+
+# Model cache and checkpoints
+checkpoints/
+profiling_traces/
+tests/checkpoints/
+testiq_coverage.json
+.import_linter_cache/
