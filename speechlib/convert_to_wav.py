@@ -6,7 +6,8 @@ def convert_to_wav(state: AudioState) -> AudioState:
     if state.working_path.suffix.lower() == ".wav":
         return state.model_copy(update={"is_wav": True})
 
-    wav_path = state.working_path.with_suffix(".wav")
+    state.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = state.artifacts_dir / "source.wav"
 
     waveform, sample_rate = torchaudio.load(str(state.working_path))
     torchaudio.save(str(wav_path), waveform, sample_rate)

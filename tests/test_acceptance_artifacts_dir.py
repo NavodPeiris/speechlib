@@ -1,23 +1,26 @@
 """
 AT: core_analysis crea la carpeta artifacts_dir junto al audio source.
 """
+import os
 import pytest
 from pathlib import Path
 from conftest import make_tone_wav
 
 
-AUDIO = Path("examples/obama_zach.wav")
 VOICES = Path("examples/voices")
 pytestmark = pytest.mark.e2e
 
 
-@pytest.fixture(scope="module")
-def artifacts_dir(tmp_path_factory):
-    """Corre core_analysis una vez y retorna la artifacts_dir creada."""
-    import shutil, os
+@pytest.fixture(
+    scope="module",
+    params=[("audio.wav", 5.0)],
+    ids=["audio_5s"],
+)
+def artifacts_dir(tmp_path_factory, request):
+    """Corre core_analysis sobre audio sintetico y retorna artifacts_dir."""
+    filename, duration_s = request.param
     tmp = tmp_path_factory.mktemp("artifacts")
-    src = tmp / "obama_zach.wav"
-    shutil.copy(AUDIO, src)
+    src = make_tone_wav(tmp / filename, duration_s=duration_s)
 
     from speechlib.core_analysis import core_analysis
     core_analysis(

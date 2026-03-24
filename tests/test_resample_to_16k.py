@@ -12,26 +12,27 @@ def _state(path: Path) -> AudioState:
 
 
 def test_non_16k_audio_is_resampled(tmp_path):
-    """44100 Hz → nuevo archivo _16k.wav a 16000 Hz."""
+    """44100 Hz → artifacts_dir/16k.wav a 16000 Hz."""
     wav = make_wav(tmp_path / "audio.wav", framerate=44100, n_frames=4410)
-    result = resample_to_16k(_state(wav))
+    state = _state(wav)
+    result = resample_to_16k(state)
 
     assert result.is_16khz is True
-    assert result.working_path != wav
-    assert "_16k" in result.working_path.name
+    assert result.working_path == state.artifacts_dir / "16k.wav"
     assert result.working_path.exists()
     _, sr = torchaudio.load(str(result.working_path))
     assert sr == 16000
 
 
-def test_already_16k_passes_through(tmp_path):
-    """16000 Hz → mismo working_path, sin crear archivo _16k."""
+def test_already_16k_writes_canonical_file(tmp_path):
+    """16000 Hz → artifacts_dir/16k.wav (always writes canonical output)."""
     wav = make_wav(tmp_path / "audio.wav", framerate=16000, n_frames=1600)
-    result = resample_to_16k(_state(wav))
+    state = _state(wav)
+    result = resample_to_16k(state)
 
     assert result.is_16khz is True
-    assert result.working_path == wav
-    assert not (tmp_path / "audio_16k.wav").exists()
+    assert result.working_path == state.artifacts_dir / "16k.wav"
+    assert result.working_path.exists()
 
 
 def test_48k_audio_is_resampled(tmp_path):

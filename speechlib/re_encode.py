@@ -18,7 +18,8 @@ def re_encode(state: AudioState) -> AudioState:
             f.readframes(1) for _ in range(params.nframes)
         ]
 
-    out_path = state.working_path.with_stem(state.working_path.stem + "_16bit")
+    state.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    out_path = state.artifacts_dir / "16bit.wav"
 
     with wave.open(str(out_path), 'wb') as out:
         out.setparams(params)
