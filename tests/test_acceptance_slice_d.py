@@ -30,8 +30,8 @@ def test_pipeline_produces_enhanced_file(tmp_path):
     state = enhance_audio(state)
 
     assert state.is_enhanced is True
+    assert state.working_path == state.artifacts_dir / "enhanced.wav"
     assert state.working_path.exists()
-    assert "_enhanced" in str(state.working_path)
     assert state.source_path == wav
 
 
