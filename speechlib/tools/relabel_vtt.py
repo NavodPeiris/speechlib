@@ -35,6 +35,7 @@ from speechlib.speaker_recognition import get_embedding, cosine_similarity
 from speechlib.audio_utils import slice_and_save
 
 DEFAULT_THRESHOLD = 0.40
+DEFAULT_PAD_MIN_MS = 2000   # ventana minima para embedding cuando --pad-short activo
 VOICES_SKIP_PREFIX = "_"
 
 TS_RE = re.compile(r"(\d{2}):(\d{2}):(\d{2})\.(\d{3})")
@@ -146,17 +147,34 @@ def main():
     parser.add_argument("audio_path")
     parser.add_argument("voices_folder")
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
+    parser.add_argument(
+        "--pad-short",
+        action="store_true",
+        help="[EXPERIMENTAL] Segmentos mas cortos que --pad-min-ms se expanden "
+             "simetricamente para el calculo del embedding. "
+             "Los timestamps del VTT no cambian.",
+    )
+    parser.add_argument(
+        "--pad-min-ms",
+        type=int,
+        default=DEFAULT_PAD_MIN_MS,
+        help=f"Duracion minima en ms para embedding cuando --pad-short activo (default: {DEFAULT_PAD_MIN_MS})",
+    )
     args = parser.parse_args()
 
     vtt_path = Path(args.vtt_path)
     audio_path = args.audio_path
     voices_folder = Path(args.voices_folder)
     threshold = args.threshold
+    pad_short = args.pad_short
+    pad_min_ms = args.pad_min_ms
 
     print(f"\nVTT      : {vtt_path.name}")
     print(f"Audio    : {Path(audio_path).name}")
     print(f"Voices   : {voices_folder}")
     print(f"Threshold: {threshold}")
+    if pad_short:
+        print(f"Padding  : EXPERIMENTAL — segmentos < {pad_min_ms}ms se expanden a {pad_min_ms}ms para embedding")
 
     print("\nCargando libreria de voces...")
     speaker_embs = load_avg_embeddings(voices_folder)
@@ -177,7 +195,15 @@ def main():
             continue
 
         try:
-            slice_and_save(audio_path, block.start_ms, block.end_ms, str(tmp))
+            duration_ms = block.end_ms - block.start_ms
+            if pad_short and duration_ms < pad_min_ms:
+                pad = (pad_min_ms - duration_ms) // 2
+                extract_start = max(0, block.start_ms - pad)
+                extract_end = block.end_ms + pad
+            else:
+                extract_start = block.start_ms
+                extract_end = block.end_ms
+            slice_and_save(audio_path, extract_start, extract_end, str(tmp))
             test_emb = get_embedding(str(tmp))
             new_speaker = identify(test_emb, speaker_embs, threshold)
         except Exception as e:
@@ -194,7 +220,8 @@ def main():
 
     tmp.unlink(missing_ok=True)
 
-    out_path = vtt_path.with_stem(vtt_path.stem + "_relabeled")
+    suffix = "_relabeled_padded" if pad_short else "_relabeled"
+    out_path = vtt_path.with_stem(vtt_path.stem + suffix)
     write_vtt(out_path, header, blocks)
 
     print(f"\n{'='*50}")
