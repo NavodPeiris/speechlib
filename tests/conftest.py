@@ -1,7 +1,15 @@
+import sys
 import wave
 import struct
 import math
 from pathlib import Path
+
+# Ensure ClearerVoice-Studio is on sys.path before any speechlib imports.
+# enhance_audio.py inserts this path at module level, but when speechlib/__init__.py
+# triggers that import the path may not yet be present (depends on test ordering).
+_clearvoice_path = r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice"
+if _clearvoice_path not in sys.path:
+    sys.path.insert(0, _clearvoice_path)
 
 
 def make_wav(path: Path, channels=1, sampwidth=2, framerate=16000, n_frames=160):

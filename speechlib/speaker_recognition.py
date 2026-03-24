@@ -34,7 +34,9 @@ def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
 
 
 def find_best_speaker(
-    test_embedding: np.ndarray, speaker_embeddings: dict[str, np.ndarray]
+    test_embedding: np.ndarray,
+    speaker_embeddings: dict[str, np.ndarray],
+    threshold: float = 0.75,
 ) -> str:
     best_speaker = "unknown"
     best_score = -1.0
@@ -45,6 +47,8 @@ def find_best_speaker(
             best_score = score
             best_speaker = speaker
 
+    if best_score < threshold:
+        return "unknown"
     return best_speaker
 
 
