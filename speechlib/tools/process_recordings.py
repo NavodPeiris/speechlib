@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 from speechlib.batch_process import batch_process
