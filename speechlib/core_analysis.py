@@ -70,10 +70,17 @@ def core_analysis(
 
     state = AudioState(source_path=Path(file_name), working_path=Path(file_name))
     state.artifacts_dir.mkdir(parents=True, exist_ok=True)
-    state = convert_to_wav(state)
-    state = convert_to_mono(state)
-    state = re_encode(state)
-    state = resample_to_16k(state)
+    cached_16k = state.artifacts_dir / "16k.wav"
+    if cached_16k.exists():
+        state = state.model_copy(update={
+            "working_path": cached_16k,
+            "is_wav": True, "is_mono": True, "is_16bit": True, "is_16khz": True,
+        })
+    else:
+        state = convert_to_wav(state)
+        state = convert_to_mono(state)
+        state = re_encode(state)
+        state = resample_to_16k(state)
     state = loudnorm(state)
     if not skip_enhance:
         state = enhance_audio(state)
