@@ -1,9 +1,12 @@
+import logging
 import os
 import numpy as np
 from pyannote.audio import Model, Inference
 from scipy.spatial.distance import cosine
 import torch
 from .audio_utils import slice_and_save
+
+logger = logging.getLogger(__name__)
 
 _embedding_model = None
 _inference = None
@@ -36,16 +39,20 @@ def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
 def find_best_speaker(
     test_embedding: np.ndarray,
     speaker_embeddings: dict[str, np.ndarray],
-    threshold: float = 0.75,
+    threshold: float = 0.40,
 ) -> str:
     best_speaker = "unknown"
     best_score = -1.0
 
+    scores = {}
     for speaker, emb in speaker_embeddings.items():
         score = cosine_similarity(test_embedding, emb)
+        scores[speaker] = score
         if score > best_score:
             best_score = score
             best_speaker = speaker
+
+    logger.debug("Speaker scores: %s  best=%.3f threshold=%.2f", scores, best_score, threshold)
 
     if best_score < threshold:
         return "unknown"
@@ -60,6 +67,8 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
     speaker_embeddings = {}
 
     for speaker in speakers:
+        if speaker.startswith("_"):
+            continue
         speaker_path = os.path.join(voices_folder, speaker)
         if not os.path.isdir(speaker_path):
             continue

@@ -45,7 +45,7 @@ class BatchReport:
         print(f"  Speakers conocidos  : {sorted(self.identified_speakers)}")
         print(f"  Speakers desconocidos: {len(self.unknown_speakers)}")
         for u in self.unknown_speakers:
-            print(f"    [{u['tag']}] en {u['audio'].name}  →  {u['folder']}")
+            print(f"    [{u['tag']}] en {u['audio'].name}  ->  {u['folder']}")
         print("=" * 60)
         if self.unknown_speakers:
             print("\n  PRÓXIMOS PASOS:")
