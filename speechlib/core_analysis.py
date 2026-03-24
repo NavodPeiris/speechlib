@@ -69,6 +69,7 @@ def core_analysis(
     # <-------------------PreProcessing file-------------------------->
 
     state = AudioState(source_path=Path(file_name), working_path=Path(file_name))
+    state.artifacts_dir.mkdir(parents=True, exist_ok=True)
     state = convert_to_wav(state)
     state = convert_to_mono(state)
     state = re_encode(state)
