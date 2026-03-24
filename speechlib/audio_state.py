@@ -13,3 +13,11 @@ class AudioState(BaseModel):
     is_16khz: bool = False
     is_normalized: bool = False
     is_enhanced: bool = False
+
+    @property
+    def artifacts_dir(self) -> Path:
+        """Carpeta oculta junto al source para todos los artefactos del pipeline.
+
+        Ejemplo: /rec/Voz 260320.m4a → /rec/.Voz 260320/
+        """
+        return self.source_path.parent / f".{self.source_path.stem}"
