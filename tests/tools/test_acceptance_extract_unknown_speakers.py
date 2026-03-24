@@ -31,7 +31,7 @@ def _make_voices_dir(tmp_path: Path) -> Path:
 
 def test_unknown_speaker_segments_saved_to_disk(tmp_path):
     """Segmentos de speaker desconocido se guardan en voices/_unknown/."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
 
     audio = make_tone_wav(tmp_path / "meeting.wav", duration_s=10.0)
     unknown_dir = tmp_path / "_unknown"
@@ -58,7 +58,7 @@ def test_unknown_speaker_segments_saved_to_disk(tmp_path):
 
 def test_segments_shorter_than_min_duration_are_skipped(tmp_path):
     """Segmentos < min_duration_s no se incluyen como muestras de voz."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
 
     audio = make_tone_wav(tmp_path / "meeting.wav", duration_s=10.0)
     unknown_dir = tmp_path / "_unknown"
@@ -81,7 +81,7 @@ def test_segments_shorter_than_min_duration_are_skipped(tmp_path):
 
 def test_max_clips_limits_saved_segments(tmp_path):
     """No se guardan más de max_clips segmentos por speaker."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
 
     audio = make_tone_wav(tmp_path / "meeting.wav", duration_s=30.0)
     unknown_dir = tmp_path / "_unknown"
@@ -108,7 +108,7 @@ def test_max_clips_limits_saved_segments(tmp_path):
 
 def test_multiple_unknown_speakers_each_get_their_folder(tmp_path):
     """Cada speaker desconocido obtiene su propia carpeta."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
 
     audio = make_tone_wav(tmp_path / "meeting.wav", duration_s=30.0)
     unknown_dir = tmp_path / "_unknown"
@@ -133,7 +133,7 @@ def test_multiple_unknown_speakers_each_get_their_folder(tmp_path):
 
 def test_output_dir_name_includes_audio_stem(tmp_path):
     """La carpeta del speaker incluye el stem del audio para evitar colisiones."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
 
     audio = make_tone_wav(tmp_path / "patricio_meeting.wav", duration_s=10.0)
     unknown_dir = tmp_path / "_unknown"
@@ -155,7 +155,7 @@ def test_output_dir_name_includes_audio_stem(tmp_path):
 
 def test_selects_longest_segments_first(tmp_path):
     """Se seleccionan los segmentos más largos cuando se supera max_clips."""
-    from speechlib.extract_unknown_speakers import extract_unknown_speakers
+    from speechlib.tools.extract_unknown_speakers import extract_unknown_speakers
     from speechlib.audio_utils import slice_and_save
 
     audio = make_tone_wav(tmp_path / "meeting.wav", duration_s=30.0)

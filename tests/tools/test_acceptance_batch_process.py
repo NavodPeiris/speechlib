@@ -36,13 +36,13 @@ def _make_voices_dir(tmp_path: Path) -> Path:
 
 def test_batch_process_returns_report_per_folder(tmp_path):
     """batch_process retorna un BatchReport con una entrada por carpeta."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder_a = _make_audio_folder(tmp_path, "session_a")
     folder_b = _make_audio_folder(tmp_path, "session_b")
     voices = _make_voices_dir(tmp_path)
 
-    with patch("speechlib.batch_process.core_analysis") as mock_ca:
+    with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
         mock_ca.return_value = [[0.0, 2.0, "hello", "Agustin"]]
         report = batch_process(
             folders=[folder_a, folder_b],
@@ -58,12 +58,12 @@ def test_batch_process_returns_report_per_folder(tmp_path):
 
 def test_batch_process_processes_all_audio_files(tmp_path):
     """core_analysis se llama una vez por archivo de audio encontrado."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder = _make_audio_folder(tmp_path, "session", n_files=3)
     voices = _make_voices_dir(tmp_path)
 
-    with patch("speechlib.batch_process.core_analysis") as mock_ca:
+    with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
         mock_ca.return_value = [[0.0, 1.0, "ok", "Agustin"]]
         report = batch_process(
             folders=[folder],
@@ -77,7 +77,7 @@ def test_batch_process_processes_all_audio_files(tmp_path):
 
 def test_batch_process_finds_audio_extensions(tmp_path):
     """batch_process detecta .wav, .mp3, .m4a, .mp4."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder = tmp_path / "mixed"
     folder.mkdir()
@@ -89,7 +89,7 @@ def test_batch_process_finds_audio_extensions(tmp_path):
 
     voices = _make_voices_dir(tmp_path)
 
-    with patch("speechlib.batch_process.core_analysis") as mock_ca:
+    with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
         mock_ca.return_value = []
         report = batch_process(
             folders=[folder],
@@ -104,16 +104,16 @@ def test_batch_process_finds_audio_extensions(tmp_path):
 
 def test_batch_report_lists_unknown_speakers(tmp_path):
     """El reporte incluye speakers desconocidos extraídos."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder = _make_audio_folder(tmp_path, "session")
     voices = _make_voices_dir(tmp_path)
     unknown_dir = tmp_path / "_unknown"
 
-    with patch("speechlib.batch_process.core_analysis") as mock_ca:
+    with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
         mock_ca.return_value = [[0.0, 2.0, "hola", "Agustin"],
                                 [2.0, 4.0, "soy nuevo", "unknown"]]
-        with patch("speechlib.batch_process.extract_unknown_speakers") as mock_ext:
+        with patch("speechlib.tools.batch_process.extract_unknown_speakers") as mock_ext:
             mock_ext.return_value = {
                 "SPEAKER_01": unknown_dir / "SPEAKER_01_recording_00"
             }
@@ -130,12 +130,12 @@ def test_batch_report_lists_unknown_speakers(tmp_path):
 
 def test_batch_report_lists_identified_speakers(tmp_path):
     """El reporte incluye speakers identificados con confianza."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder = _make_audio_folder(tmp_path, "session")
     voices = _make_voices_dir(tmp_path)
 
-    with patch("speechlib.batch_process.core_analysis") as mock_ca:
+    with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
         mock_ca.return_value = [[0.0, 2.0, "hola Agustin", "Agustin"]]
         report = batch_process(
             folders=[folder],
@@ -149,7 +149,7 @@ def test_batch_report_lists_identified_speakers(tmp_path):
 
 def test_batch_process_continues_after_file_error(tmp_path):
     """Si un archivo falla, el batch continúa con los demás."""
-    from speechlib.batch_process import batch_process
+    from speechlib.tools.batch_process import batch_process
 
     folder = _make_audio_folder(tmp_path, "session", n_files=3)
     voices = _make_voices_dir(tmp_path)
@@ -163,7 +163,7 @@ def test_batch_process_continues_after_file_error(tmp_path):
             raise RuntimeError("Audio corrupted")
         return [[0.0, 1.0, "ok", "Agustin"]]
 
-    with patch("speechlib.batch_process.core_analysis", side_effect=mock_ca):
+    with patch("speechlib.tools.batch_process.core_analysis", side_effect=mock_ca):
         report = batch_process(
             folders=[folder],
             voices_folder=voices,

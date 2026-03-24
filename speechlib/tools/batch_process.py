@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .core_analysis import core_analysis
+from ..core_analysis import core_analysis
 from .extract_unknown_speakers import extract_unknown_speakers
 
 logger = logging.getLogger(__name__)

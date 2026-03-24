@@ -18,7 +18,7 @@ Estructura de salida:
 import logging
 from pathlib import Path
 
-from .audio_utils import slice_and_save
+from ..audio_utils import slice_and_save
 
 logger = logging.getLogger(__name__)
 
