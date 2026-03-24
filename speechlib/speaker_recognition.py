@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 import numpy as np
 from pyannote.audio import Model, Inference
 from scipy.spatial.distance import cosine
@@ -92,7 +93,7 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
     Id_count = defaultdict(int)
 
-    folder_name = "temp"
+    folder_name = str(Path(file_name).parent / "tmp")
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
