@@ -1,5 +1,4 @@
-import os
-from datetime import datetime
+from pathlib import Path
 
 
 def _format_vtt(seconds: float) -> str:
@@ -11,14 +10,9 @@ def _format_vtt(seconds: float) -> str:
 
 
 def write_log_file(common_segments, log_folder, file_name, language, output_format: str = "vtt"):
-    if not os.path.exists(log_folder):
-        os.makedirs(log_folder)
-
-    current_time = datetime.now().strftime('%H%M%S')
-    base_name = os.path.splitext(os.path.basename(file_name))[0]
+    artifacts_dir = Path(file_name).parent
 
     if output_format == "vtt":
-        log_file = f"{log_folder}/{base_name}_{current_time}_{language}.vtt"
         entry = "WEBVTT\n\n"
         n = 0
         for segment in common_segments:
@@ -26,13 +20,13 @@ def write_log_file(common_segments, log_folder, file_name, language, output_form
             if text:
                 n += 1
                 entry += f"{n}\n{_format_vtt(start)} --> {_format_vtt(end)}\n[{speaker}] {text}\n\n"
+        out_path = artifacts_dir / f"transcript_{language}.vtt"
     else:
-        log_file = f"{log_folder}/{base_name}_{current_time}_{language}.txt"
         entry = ""
         for segment in common_segments:
             start, end, text, speaker = segment[0], segment[1], segment[2], segment[3]
             if text:
                 entry += f"{speaker} ({start} : {end}) : {text}\n"
+        out_path = artifacts_dir / f"transcript_{language}.txt"
 
-    with open(log_file, "wb") as lf:
-        lf.write(entry.encode('utf-8'))
+    out_path.write_bytes(entry.encode("utf-8"))

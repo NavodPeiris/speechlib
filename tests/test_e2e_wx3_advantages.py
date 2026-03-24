@@ -229,18 +229,18 @@ def test_v2_segment_count_is_reasonable(run_result):
 
 @needs_hf
 def test_v3_vtt_file_created(run_result_vtt):
-    """output_format='vtt' crea exactamente un archivo .vtt."""
-    _, log_dir, _, _ = run_result_vtt
-    vtt_files = list(Path(log_dir).glob("*.vtt"))
-    assert len(vtt_files) == 1, f"Se esperaba 1 .vtt, encontrados: {vtt_files}"
-    assert len(list(Path(log_dir).glob("*.txt"))) == 0, "No debe haber .txt en corrida VTT"
+    """output_format='vtt' crea transcript_en.vtt en artifacts_dir."""
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    vtt = artifacts_dir / "transcript_en.vtt"
+    assert vtt.exists(), f"transcript_en.vtt no encontrado en {artifacts_dir}"
+    assert not (artifacts_dir / "transcript_en.txt").exists(), "No debe haber .txt en corrida VTT"
 
 
 @needs_hf
 def test_v3_vtt_starts_with_webvtt_header(run_result_vtt):
     """El archivo VTT comienza con 'WEBVTT'."""
-    _, log_dir, _, _ = run_result_vtt
-    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    content = (artifacts_dir / "transcript_en.vtt").read_text(encoding="utf-8")
     assert content.startswith("WEBVTT"), (
         f"El VTT no empieza con 'WEBVTT'. Primeros 100 chars:\n{content[:100]}"
     )
@@ -249,8 +249,8 @@ def test_v3_vtt_starts_with_webvtt_header(run_result_vtt):
 @needs_hf
 def test_v3_vtt_timestamps_use_dot(run_result_vtt):
     """Los timestamps tienen formato VTT: HH:MM:SS.mmm --> HH:MM:SS.mmm (punto, no coma)."""
-    _, log_dir, _, _ = run_result_vtt
-    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    content = (artifacts_dir / "transcript_en.vtt").read_text(encoding="utf-8")
     pattern = r"\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}"
     matches = re.findall(pattern, content)
     assert len(matches) >= 1, (
@@ -265,8 +265,8 @@ def test_v3_vtt_timestamps_use_dot(run_result_vtt):
 @needs_hf
 def test_v3_vtt_block_structure_is_valid(run_result_vtt):
     """Cada bloque VTT tiene: número, línea -->, texto con speaker."""
-    _, log_dir, _, _ = run_result_vtt
-    content = list(Path(log_dir).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    content = (artifacts_dir / "transcript_en.vtt").read_text(encoding="utf-8")
     blocks = [b.strip() for b in content.strip().split("\n\n") if b.strip() and b.strip() != "WEBVTT"]
     assert len(blocks) >= 1, "No se encontraron bloques VTT"
 
@@ -282,12 +282,10 @@ def test_v3_vtt_block_structure_is_valid(run_result_vtt):
 
 @needs_hf
 def test_v3_vtt_is_default_format(run_result):
-    """La corrida por defecto (sin output_format) crea un .vtt, no un .txt."""
-    _, log_dir, _, _ = run_result
-    vtt_files = list(Path(log_dir).glob("*.vtt"))
-    txt_files = list(Path(log_dir).glob("*.txt"))
-    assert len(vtt_files) == 1, f"Se esperaba 1 .vtt por defecto, encontrados: {vtt_files}"
-    assert len(txt_files) == 0, f"No debe haber .txt en corrida por defecto"
+    """La corrida por defecto (sin output_format) crea transcript_en.vtt en artifacts_dir."""
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    assert (artifacts_dir / "transcript_en.vtt").exists(), "transcript_en.vtt no encontrado"
+    assert not (artifacts_dir / "transcript_en.txt").exists(), "No debe haber .txt en corrida por defecto"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -389,7 +387,8 @@ def test_summary_print(run_result, run_result_vtt):
     _, log_dir_vtt2, new_hits_vtt, new_misses_vtt = run_result_vtt
 
     speakers = {seg[3] for seg in result}
-    vtt_content = list(Path(log_dir_vtt2).glob("*.vtt"))[0].read_text(encoding="utf-8")
+    artifacts_dir = AUDIO.parent / f".{AUDIO.stem}"
+    vtt_content = (artifacts_dir / "transcript_en.vtt").read_text(encoding="utf-8")
     vtt_blocks = [b for b in vtt_content.strip().split("\n\n") if b.strip() and b.strip() != "WEBVTT"]
 
     violations = sum(
@@ -406,7 +405,7 @@ def test_summary_print(run_result, run_result_vtt):
           f"| 2ª corrida: hits_nuevos={new_hits_vtt}, misses_nuevos={new_misses_vtt}")
     print(f"  V2 Pyannote  {len(result)} segmentos, {len(speakers)} locutores: {speakers}")
     print(f"  V3 VTT       {len(vtt_blocks)} bloques | "
-          f".vtt={list(Path(log_dir_vtt2).glob('*.vtt'))[0].name}")
+          f".vtt={artifacts_dir / 'transcript_en.vtt'}")
     before = merge_counts.get("before", "?")
     after = merge_counts.get("after", "?")
     pct = f"{(before - after) / before * 100:.1f}%" if isinstance(before, int) and before else "?"

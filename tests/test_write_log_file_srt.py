@@ -23,7 +23,7 @@ def test_format_vtt_millisecond_precision():
 
 def test_default_creates_vtt_file(tmp_path):
     segments = [[0.0, 1.0, "hello world", "SPEAKER_00"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en")
     vtt_files = list(tmp_path.glob("*.vtt"))
     assert len(vtt_files) == 1
     assert len(list(tmp_path.glob("*.txt"))) == 0
@@ -33,7 +33,7 @@ def test_default_creates_vtt_file(tmp_path):
 
 def test_txt_format_explicit(tmp_path):
     segments = [[0.0, 1.0, "hello", "SPEAKER_00"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="txt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="txt")
     assert len(list(tmp_path.glob("*.txt"))) == 1
     assert len(list(tmp_path.glob("*.vtt"))) == 0
 
@@ -42,7 +42,7 @@ def test_txt_format_explicit(tmp_path):
 
 def test_vtt_format_creates_vtt_file(tmp_path):
     segments = [[0.0, 1.5, "hello world", "SPEAKER_00"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="vtt")
     vtt_files = list(tmp_path.glob("*.vtt"))
     assert len(vtt_files) == 1
     assert len(list(tmp_path.glob("*.txt"))) == 0
@@ -50,7 +50,7 @@ def test_vtt_format_creates_vtt_file(tmp_path):
 def test_vtt_header_present(tmp_path):
     """El archivo VTT comienza con la línea 'WEBVTT'."""
     segments = [[0.0, 1.0, "texto", "SPEAKER_00"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="vtt")
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     assert content.startswith("WEBVTT"), (
         f"El VTT debe empezar con 'WEBVTT'. Inicio: {content[:50]!r}"
@@ -62,7 +62,7 @@ def test_vtt_block_structure(tmp_path):
         [0.0, 2.0, "hello", "SPEAKER_00"],
         [3.0, 5.0, "world", "SPEAKER_01"],
     ]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="vtt")
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     lines = content.split("\n")
     assert lines[0] == "WEBVTT"
@@ -77,7 +77,7 @@ def test_vtt_block_structure(tmp_path):
 def test_vtt_timestamps_use_dot(tmp_path):
     """Los timestamps VTT usan punto como separador de milisegundos."""
     segments = [[125.5, 130.0, "text", "SPEAKER_00"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="vtt")
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     assert "00:02:05.500" in content
     assert "00:02:10.000" in content
@@ -87,7 +87,7 @@ def test_vtt_timestamps_use_dot(tmp_path):
 
 def test_vtt_skips_empty_text(tmp_path):
     segments = [[0.0, 1.0, "", "SPEAKER_00"], [1.0, 2.0, "real", "SPEAKER_01"]]
-    write_log_file(segments, str(tmp_path), "audio.wav", "en", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "en", output_format="vtt")
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     blocks = [b for b in content.split("\n\n") if b.strip() and b.strip() != "WEBVTT"]
     assert len(blocks) == 1, f"Se esperaba 1 bloque, hay {len(blocks)}"
@@ -98,7 +98,7 @@ def test_vtt_overlapping_cues_both_written(tmp_path):
         [37.3, 40.4, "Tiene que opinar el público.", "Agustin"],
         [38.3, 41.2, "damos uno de nuevo, por favor.", "Manuel"],
     ]
-    write_log_file(segments, str(tmp_path), "audio.wav", "es", output_format="vtt")
+    write_log_file(segments, str(tmp_path), str(tmp_path / "audio.wav"), "es", output_format="vtt")
     content = list(tmp_path.glob("*.vtt"))[0].read_text(encoding="utf-8")
     assert "Agustin" in content
     assert "Manuel" in content
