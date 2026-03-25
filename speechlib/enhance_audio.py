@@ -28,6 +28,7 @@ def enhance_audio(state: AudioState) -> AudioState:
         )
 
     # Directorio temporal para que ClearVoice escriba su output
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = state.artifacts_dir / "_enhance_tmp"
     result_audio = _clearvoice_model(
         input_path=str(state.working_path),
