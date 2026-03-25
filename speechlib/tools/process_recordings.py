@@ -6,7 +6,6 @@ Requiere HF_TOKEN en el entorno.
 """
 import os
 import sys
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -14,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 from speechlib.tools.batch_process import batch_process
+from speechlib.audio_utils import extract_audio_segment
 
 VOICES  = Path(r"C:\workspace\#dev\speechlib\transcript_samples\voices")
 UNKNOWN = Path(r"C:\workspace\#dev\speechlib\transcript_samples\voices\_unknown")
@@ -31,19 +31,8 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".mp4", ".aac", ".opus"}
 
 
 def extract_sample(audio_path: Path, start_s: int, end_s: int, dest: Path) -> Path:
-    """Extrae [start_s, end_s] del audio usando ffmpeg → WAV mono 16kHz."""
-    duration = end_s - start_s
-    subprocess.run([
-        "ffmpeg", "-y",
-        "-ss", str(start_s),
-        "-t",  str(duration),
-        "-i",  str(audio_path),
-        "-ac", "1",
-        "-ar", "16000",
-        "-c:a", "pcm_s16le",
-        str(dest),
-    ], capture_output=True, check=True)
-    return dest
+    """Extrae [start_s, end_s] del audio usando torchaudio → WAV mono 16kHz."""
+    return extract_audio_segment(audio_path, dest, start_s=start_s, duration_s=end_s - start_s)
 
 
 # Crear muestras en directorio temporal

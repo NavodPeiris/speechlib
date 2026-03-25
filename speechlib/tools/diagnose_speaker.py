@@ -20,8 +20,6 @@ No modifica nada.
 
 import os
 import sys
-import subprocess
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -29,6 +27,7 @@ sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
 from speechlib.speaker_recognition import get_embedding, cosine_similarity, SPEAKER_SIMILARITY_THRESHOLD
+from speechlib.audio_utils import extract_audio_segment
 
 THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 WINDOW_S  = 30          # segundos a extraer alrededor del timestamp
@@ -43,23 +42,8 @@ def hms_to_seconds(ts: str) -> int:
 
 def extract_window(audio_path: str, start_s: int, duration_s: int) -> Path:
     tmp_dir = Path(audio_path).parent / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
     tmp = tmp_dir / f"diag_{start_s}.wav"
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-ss", str(max(0, start_s)),
-            "-t",  str(duration_s),
-            "-i",  audio_path,
-            "-ac", "1",
-            "-ar", "16000",
-            "-c:a", "pcm_s16le",
-            str(tmp),
-        ],
-        capture_output=True,
-        check=True,
-    )
-    return tmp
+    return extract_audio_segment(audio_path, tmp, start_s=max(0, start_s), duration_s=duration_s)
 
 
 def load_speaker_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
