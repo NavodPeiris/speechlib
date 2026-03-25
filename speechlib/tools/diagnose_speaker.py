@@ -42,7 +42,9 @@ def hms_to_seconds(ts: str) -> int:
 
 
 def extract_window(audio_path: str, start_s: int, duration_s: int) -> Path:
-    tmp = Path(tempfile.mktemp(prefix="diag_", suffix=".wav"))
+    tmp_dir = Path(audio_path).parent / "tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp = tmp_dir / f"diag_{start_s}.wav"
     subprocess.run(
         [
             "ffmpeg", "-y",

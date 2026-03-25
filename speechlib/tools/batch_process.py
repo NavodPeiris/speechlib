@@ -127,12 +127,13 @@ def batch_process(
                     else:
                         report.identified_speakers.add(speaker)
 
-                # Extraer clips de desconocidos
+                # Extraer clips de desconocidos en artifacts_dir/unknown_speakers/
                 if unknown_segs:
+                    audio_artifacts_dir = audio_path.parent / f".{audio_path.stem}"
                     extracted = extract_unknown_speakers(
                         audio_path=audio_path,
                         unknown_segments=unknown_segs,
-                        output_dir=unknown_output_dir,
+                        output_dir=audio_artifacts_dir / "unknown_speakers",
                         min_duration_s=min_unknown_duration_s,
                         max_clips=max_unknown_clips,
                     )
