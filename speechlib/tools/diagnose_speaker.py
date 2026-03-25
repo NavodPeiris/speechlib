@@ -47,9 +47,6 @@ def extract_window(audio_path: str, start_s: int, duration_s: int) -> Path:
     return extract_audio_segment(audio_path, tmp, start_s=max(0, start_s), duration_s=duration_s)
 
 
-def load_speaker_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
-    """Retorna {speaker_name: [emb_per_segment, ...]}."""
-    return load_voice_embeddings(voices_folder)
 
 
 def main():
@@ -81,7 +78,7 @@ def main():
         sys.exit(1)
 
     print("\nCargando librería de voces...")
-    speaker_embs = load_speaker_embeddings(voices_folder)
+    speaker_embs = load_voice_embeddings(voices_folder)
     print(f"  {len(speaker_embs)} speakers: {sorted(speaker_embs)}")
 
     print("\n" + "=" * 62)
