@@ -100,7 +100,7 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
     i = 0
 
-    limit = 60
+    limit = 60_000  # 60 segundos expresado en ms
     duration = 0
 
     for segment in segments:
