@@ -27,11 +27,10 @@ sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
 from speechlib.speaker_recognition import (
-    get_embedding, cosine_similarity, load_voice_embeddings, SPEAKER_SIMILARITY_THRESHOLD,
+    get_embedding, cosine_similarity, load_voice_embeddings, SPEAKER_SIMILARITY_SPEAKER_SIMILARITY_THRESHOLD,
 )
 from speechlib.audio_utils import extract_audio_segment
 
-THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 WINDOW_S  = 30          # segundos a extraer alrededor del timestamp
 
 
@@ -63,7 +62,7 @@ def main():
     print(f"\nAudio    : {audio_path}")
     print(f"Timestamp: {timestamp}  ({start_s}s)")
     print(f"Ventana  : {start_s}s -> {start_s + WINDOW_S}s  ({WINDOW_S}s)")
-    print(f"Threshold: {THRESHOLD}")
+    print(f"Threshold: {SPEAKER_SIMILARITY_THRESHOLD}")
 
     print("\nExtrayendo ventana de audio...")
     tmp_wav = extract_window(audio_path, start_s, WINDOW_S)
@@ -93,16 +92,16 @@ def main():
     rows.sort(key=lambda r: r[2], reverse=True)
 
     for speaker, s_min, s_avg, s_max in rows:
-        result = "PASS" if s_avg >= THRESHOLD else "FAIL  (unknown)"
+        result = "PASS" if s_avg >= SPEAKER_SIMILARITY_THRESHOLD else "FAIL  (unknown)"
         print(f"  {speaker:<20} {s_min:>6.3f} {s_avg:>6.3f} {s_max:>6.3f}  {result}")
 
     print("=" * 62)
 
     best_speaker, _, best_avg, _ = rows[0]
-    if best_avg < THRESHOLD:
-        print(f"\n[DIAGNOSIS] Ningún speaker supera threshold={THRESHOLD}.")
+    if best_avg < SPEAKER_SIMILARITY_THRESHOLD:
+        print(f"\n[DIAGNOSIS] Ningún speaker supera threshold={SPEAKER_SIMILARITY_THRESHOLD}.")
         print(f"  Mejor candidato: {best_speaker} (avg={best_avg:.3f})")
-        print(f"  Brecha vs threshold: {THRESHOLD - best_avg:+.3f}")
+        print(f"  Brecha vs threshold: {SPEAKER_SIMILARITY_THRESHOLD - best_avg:+.3f}")
         print("  => H1 probable: cosine similarity insuficiente en este tramo.")
     else:
         print(f"\n[DIAGNOSIS] {best_speaker} supera threshold (avg={best_avg:.3f}).")
