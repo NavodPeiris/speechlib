@@ -29,11 +29,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
-from speechlib.speaker_recognition import get_embedding, cosine_similarity
+from speechlib.speaker_recognition import get_embedding, cosine_similarity, SPEAKER_SIMILARITY_THRESHOLD
 from speechlib.audio_utils import slice_and_save
 from speechlib.vtt_utils import VttBlock, TS_RE, SPEAKER_RE, ts_to_ms, parse_vtt, write_vtt
 
-DEFAULT_THRESHOLD = 0.40
+DEFAULT_THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 DEFAULT_PAD_MIN_MS = 2000   # ventana minima para embedding cuando --pad-short activo
 VOICES_SKIP_PREFIX = "_"
 

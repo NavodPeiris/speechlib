@@ -28,9 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
-from speechlib.speaker_recognition import get_embedding, cosine_similarity
+from speechlib.speaker_recognition import get_embedding, cosine_similarity, SPEAKER_SIMILARITY_THRESHOLD
 
-THRESHOLD = 0.40
+THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 WINDOW_S  = 30          # segundos a extraer alrededor del timestamp
 VOICES_SKIP_PREFIX = "_"
 

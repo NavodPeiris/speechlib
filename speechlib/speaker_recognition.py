@@ -9,6 +9,8 @@ from .audio_utils import slice_and_save
 
 logger = logging.getLogger(__name__)
 
+SPEAKER_SIMILARITY_THRESHOLD = 0.40
+
 _embedding_model = None
 _inference = None
 
@@ -40,7 +42,7 @@ def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
 def find_best_speaker(
     test_embedding: np.ndarray,
     speaker_embeddings: dict[str, np.ndarray],
-    threshold: float = 0.40,
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
 ) -> str:
     best_speaker = "unknown"
     best_score = -1.0
