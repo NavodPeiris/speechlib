@@ -26,12 +26,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
-from speechlib.speaker_recognition import get_embedding, cosine_similarity, SPEAKER_SIMILARITY_THRESHOLD
+from speechlib.speaker_recognition import (
+    get_embedding, cosine_similarity, load_voice_embeddings, SPEAKER_SIMILARITY_THRESHOLD,
+)
 from speechlib.audio_utils import extract_audio_segment
 
 THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 WINDOW_S  = 30          # segundos a extraer alrededor del timestamp
-VOICES_SKIP_PREFIX = "_"
 
 
 def hms_to_seconds(ts: str) -> int:
@@ -48,19 +49,7 @@ def extract_window(audio_path: str, start_s: int, duration_s: int) -> Path:
 
 def load_speaker_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
     """Retorna {speaker_name: [emb_per_segment, ...]}."""
-    result = {}
-    for entry in sorted(voices_folder.iterdir()):
-        if not entry.is_dir() or entry.name.startswith(VOICES_SKIP_PREFIX):
-            continue
-        embs = []
-        for wav in sorted(entry.glob("*.wav")):
-            try:
-                embs.append(get_embedding(str(wav)))
-            except Exception as e:
-                print(f"  [WARN] {entry.name}/{wav.name}: {e}")
-        if embs:
-            result[entry.name] = embs
-    return result
+    return load_voice_embeddings(voices_folder)
 
 
 def main():

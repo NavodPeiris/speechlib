@@ -29,42 +29,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
 
 import numpy as np
-from speechlib.speaker_recognition import get_embedding, cosine_similarity, SPEAKER_SIMILARITY_THRESHOLD
+from speechlib.speaker_recognition import (
+    get_embedding, cosine_similarity, find_best_speaker,
+    load_avg_voice_embeddings, SPEAKER_SIMILARITY_THRESHOLD,
+)
 from speechlib.audio_utils import slice_and_save
 from speechlib.vtt_utils import VttBlock, TS_RE, SPEAKER_RE, ts_to_ms, parse_vtt, write_vtt
 
 DEFAULT_THRESHOLD = SPEAKER_SIMILARITY_THRESHOLD
 DEFAULT_PAD_MIN_MS = 2000   # ventana minima para embedding cuando --pad-short activo
-VOICES_SKIP_PREFIX = "_"
-
-
-# ── Voice library ─────────────────────────────────────────────────────────────
-
-def load_avg_embeddings(voices_folder: Path) -> dict[str, np.ndarray]:
-    """Returns {speaker: avg_embedding}."""
-    result = {}
-    for entry in sorted(voices_folder.iterdir()):
-        if not entry.is_dir() or entry.name.startswith(VOICES_SKIP_PREFIX):
-            continue
-        embs = []
-        for wav in sorted(entry.glob("*.wav")):
-            try:
-                embs.append(get_embedding(str(wav)))
-            except Exception:
-                pass
-        if embs:
-            result[entry.name] = np.mean(embs, axis=0)
-    return result
-
-
-def identify(test_emb: np.ndarray, speaker_embs: dict[str, np.ndarray], threshold: float) -> str:
-    best, best_score = "unknown", -1.0
-    for speaker, emb in speaker_embs.items():
-        score = cosine_similarity(test_emb, emb)
-        if score > best_score:
-            best_score = score
-            best = speaker
-    return best if best_score >= threshold else "unknown"
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -106,7 +79,7 @@ def main():
         print(f"Padding  : EXPERIMENTAL — segmentos < {pad_min_ms}ms se expanden a {pad_min_ms}ms para embedding")
 
     print("\nCargando libreria de voces...")
-    speaker_embs = load_avg_embeddings(voices_folder)
+    speaker_embs = load_avg_voice_embeddings(voices_folder)
     print(f"  {len(speaker_embs)} speakers: {sorted(speaker_embs)}")
 
     print("\nParsando VTT...")
@@ -134,7 +107,7 @@ def main():
                 extract_end = block.end_ms
             slice_and_save(audio_path, extract_start, extract_end, str(tmp))
             test_emb = get_embedding(str(tmp))
-            new_speaker = identify(test_emb, speaker_embs, threshold)
+            new_speaker = find_best_speaker(test_emb, speaker_embs, threshold)
         except Exception as e:
             errors += 1
             continue

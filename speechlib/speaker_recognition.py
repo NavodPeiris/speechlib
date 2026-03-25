@@ -10,6 +10,7 @@ from .audio_utils import slice_and_save
 logger = logging.getLogger(__name__)
 
 SPEAKER_SIMILARITY_THRESHOLD = 0.40
+VOICES_SKIP_PREFIX = "_"
 
 _embedding_model = None
 _inference = None
@@ -62,34 +63,41 @@ def find_best_speaker(
     return best_speaker
 
 
+def load_voice_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
+    """Carga embeddings por archivo para cada speaker en voices_folder.
+
+    Retorna {speaker_name: [embedding_por_archivo, ...]}
+    Omite directorios con prefijo VOICES_SKIP_PREFIX ('_').
+    """
+    result: dict[str, list[np.ndarray]] = {}
+    voices_folder = Path(voices_folder)
+    for entry in sorted(voices_folder.iterdir()):
+        if not entry.is_dir() or entry.name.startswith(VOICES_SKIP_PREFIX):
+            continue
+        embs = []
+        for wav in sorted(entry.glob("*.wav")):
+            try:
+                embs.append(get_embedding(str(wav)))
+            except Exception as e:
+                print(f"Error extracting embedding from {wav}: {e}")
+        if embs:
+            result[entry.name] = embs
+    return result
+
+
+def load_avg_voice_embeddings(voices_folder: Path) -> dict[str, np.ndarray]:
+    """Carga embedding promedio por speaker en voices_folder.
+
+    Retorna {speaker_name: avg_embedding}.
+    """
+    raw = load_voice_embeddings(voices_folder)
+    return {name: np.mean(embs, axis=0) for name, embs in raw.items()}
+
+
 def speaker_recognition(file_name, voices_folder, segments, wildcards):
     inference = _get_inference()
 
-    speakers = os.listdir(voices_folder)
-
-    speaker_embeddings = {}
-
-    for speaker in speakers:
-        if speaker.startswith("_"):
-            continue
-        speaker_path = os.path.join(voices_folder, speaker)
-        if not os.path.isdir(speaker_path):
-            continue
-
-        voice_files = os.listdir(speaker_path)
-        embeddings = []
-
-        for voice_file in voice_files:
-            voice_path = os.path.join(speaker_path, voice_file)
-            try:
-                emb = inference(voice_path)
-                embeddings.append(emb)
-            except Exception as e:
-                print(f"Error extracting embedding from {voice_path}: {e}")
-
-        if embeddings:
-            avg_emb = np.mean(embeddings, axis=0)
-            speaker_embeddings[speaker] = avg_emb
+    speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder))
 
     from collections import defaultdict
 
