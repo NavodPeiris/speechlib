@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from speechlib.tools.relabel_vtt import parse_vtt, write_vtt
+from speechlib.vtt_utils import parse_vtt, write_vtt
 
 
 def revert_speakers(vtt_path: Path, speakers_to_revert: list[str]) -> Path:

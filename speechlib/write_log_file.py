@@ -1,12 +1,6 @@
 from pathlib import Path
 
-
-def _format_vtt(seconds: float) -> str:
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    ms = int(round((seconds % 1) * 1000))
-    return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+from .vtt_utils import seconds_to_vtt_ts as _format_vtt
 
 
 def write_log_file(common_segments, log_folder, file_name, language, output_format: str = "vtt"):
