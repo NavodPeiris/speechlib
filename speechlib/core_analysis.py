@@ -148,6 +148,14 @@ def core_analysis(
         elapsed_time = int(end_time - start_time)
         print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
 
+        # Assign unique unknown_NNN labels to unrecognized speakers,
+        # in first-appearance order (speaker_tags preserves diarization order).
+        unknown_counter = 0
+        for spk_tag in speaker_tags:
+            if speaker_map.get(spk_tag) == "unknown":
+                unknown_counter += 1
+                speaker_map[spk_tag] = f"unknown_{unknown_counter:03d}"
+
     keys_to_remove = []
     merged = []
 
