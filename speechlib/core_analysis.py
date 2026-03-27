@@ -1,11 +1,8 @@
 import os
 import threading
-from pyannote.audio import Pipeline
 import time
 from .wav_segmenter import wav_file_segmentation
 from .transcribe import transcribe_full_aligned
-import torch
-from functools import lru_cache
 from .step_timer import measure, print_report
 from .kernel_profiler import measure as kmeasure, print_report as kprint_report
 
@@ -14,6 +11,7 @@ import torchaudio
 if not hasattr(torchaudio, "list_audio_backends"):
     torchaudio.list_audio_backends = lambda: ["sox"]
 
+from .diarization import get_diarization_pipeline as _get_diarization_pipeline
 from .speaker_recognition import speaker_recognition
 from .write_log_file import write_log_file
 from .segment_merger import merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker, absorb_micro_segments
@@ -27,19 +25,6 @@ from .resample_to_16k import resample_to_16k
 from .loudnorm import loudnorm
 from .enhance_audio import enhance_audio
 from .compress_audio import compress_audio
-
-
-@lru_cache(maxsize=1)
-def _get_diarization_pipeline(token: str):
-    """Cache el pipeline de diarizacion para evitar recargarlo en cada llamada."""
-    pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-3.1", token=token
-    )
-    if torch.cuda.is_available():
-        pipeline.to(torch.device("cuda"))
-    elif torch.backends.mps.is_available():
-        pipeline.to(torch.device("mps"))
-    return pipeline
 
 
 # by default use google speech-to-text API

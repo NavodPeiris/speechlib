@@ -24,7 +24,7 @@ def test_pipeline_initialized_with_3_1_model(tmp_path):
     mock_pipeline.return_value = mock_diarization
 
     with (
-        patch("speechlib.core_analysis.Pipeline") as mock_cls,
+        patch("speechlib.diarization.Pipeline") as mock_cls,
         patch("speechlib.core_analysis.torchaudio") as mock_torchaudio,
         patch("speechlib.core_analysis.convert_to_wav", side_effect=lambda s: s),
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),

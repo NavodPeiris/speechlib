@@ -45,7 +45,7 @@ def test_overlapping_segments_both_appear_in_result(fake_wav, tmp_path):
         return [[s[0], s[1], "text", s[2]] for s in segments]
 
     with (
-        patch("speechlib.core_analysis.Pipeline.from_pretrained", return_value=pipeline_mock),
+        patch("speechlib.diarization.Pipeline.from_pretrained", return_value=pipeline_mock),
         patch("speechlib.core_analysis.AudioState", return_value=_state(fake_wav)),
         patch("speechlib.core_analysis.torchaudio") as mock_torchaudio,
         patch("speechlib.core_analysis.convert_to_wav", side_effect=lambda s: s),
@@ -79,7 +79,7 @@ def test_overlapping_timestamps_preserved(fake_wav, tmp_path):
         return [[s[0], s[1], "text", s[2]] for s in segments]
 
     with (
-        patch("speechlib.core_analysis.Pipeline.from_pretrained", return_value=pipeline_mock),
+        patch("speechlib.diarization.Pipeline.from_pretrained", return_value=pipeline_mock),
         patch("speechlib.core_analysis.AudioState", return_value=_state(fake_wav)),
         patch("speechlib.core_analysis.torchaudio") as mock_torchaudio,
         patch("speechlib.core_analysis.convert_to_wav", side_effect=lambda s: s),

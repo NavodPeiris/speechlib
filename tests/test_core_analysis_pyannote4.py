@@ -30,7 +30,7 @@ def test_pyannote4_api_comprehensive(tmp_path):
     wav = make_wav(tmp_path / "audio.wav", n_frames=1600)
 
     with (
-        patch("speechlib.core_analysis.Pipeline") as mock_cls,
+        patch("speechlib.diarization.Pipeline") as mock_cls,
         patch("speechlib.core_analysis.torchaudio") as mock_torchaudio,
         patch("speechlib.core_analysis.convert_to_wav", side_effect=lambda s: s),
         patch("speechlib.core_analysis.convert_to_mono", side_effect=lambda s: s),

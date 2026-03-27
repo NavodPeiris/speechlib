@@ -73,7 +73,7 @@ def test_pipeline_loaded_once_for_multiple_core_analysis_calls(tmp_path):
     wav2 = tmp_path / "audio2.wav"
     wav2.write_bytes(b"RIFF")
 
-    with patch("speechlib.core_analysis.Pipeline.from_pretrained") as mock_from_pretrained:
+    with patch("speechlib.diarization.Pipeline.from_pretrained") as mock_from_pretrained:
         _run_core_analysis(wav1, tmp_path, mock_from_pretrained)
         _run_core_analysis(wav2, tmp_path, mock_from_pretrained)
 
@@ -88,7 +88,7 @@ def test_cached_pipeline_returns_same_instance(tmp_path):
     from speechlib.core_analysis import _get_diarization_pipeline
 
     mock_pipeline = _make_mock_pipeline()
-    with patch("speechlib.core_analysis.Pipeline.from_pretrained", return_value=mock_pipeline):
+    with patch("speechlib.diarization.Pipeline.from_pretrained", return_value=mock_pipeline):
         p1 = _get_diarization_pipeline("TOKEN")
         p2 = _get_diarization_pipeline("TOKEN")
 
