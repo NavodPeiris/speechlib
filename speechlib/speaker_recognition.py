@@ -1,11 +1,13 @@
 import logging
 import os
 from pathlib import Path
+from typing import Union
 import numpy as np
 from pyannote.audio import Model, Inference
 from scipy.spatial.distance import cosine
 import torch
 from .audio_utils import slice_and_save
+from .diarization import get_diarization_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -154,3 +156,54 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
     most_common_Id = max(Id_count, key=Id_count.get) if Id_count else "unknown"
     return most_common_Id
+
+
+def detect_unknown_speakers(
+    audio_path: Union[str, Path],
+    voices_folder: Union[str, Path],
+    hf_token: str | None = None,
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
+    limit_s: float = 60.0,
+) -> dict[str, list[list[float]]]:
+    """Diariza el audio y retorna segmentos de speakers no reconocidos en voices_folder.
+
+    Args:
+        audio_path: WAV procesado (enhanced/16k).
+        voices_folder: Carpeta con subdirectorios por speaker conocido.
+        hf_token: Token HuggingFace para cargar el pipeline de diarización.
+        threshold: Umbral de cosine similarity para considerar a un speaker conocido.
+        limit_s: Segundos máximos de audio a analizar por speaker (rendimiento).
+
+    Returns:
+        {speaker_tag: [[start_s, end_s], ...]} — solo speakers no reconocidos.
+        Los tags son los SPEAKER_XX asignados por pyannote.
+    """
+    pipeline = get_diarization_pipeline(hf_token)
+
+    import torchaudio
+    waveform, sample_rate = torchaudio.load(str(audio_path))
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+
+    annotation = (
+        diarization.speaker_diarization
+        if hasattr(diarization, "speaker_diarization")
+        else diarization
+    )
+
+    # Construir dict de segmentos por speaker_tag
+    speakers: dict[str, list[list[float]]] = {}
+    for turn, _, spk_tag in annotation.itertracks(yield_label=True):
+        start = round(turn.start, 1)
+        end = round(turn.end, 1)
+        if spk_tag not in speakers:
+            speakers[spk_tag] = []
+        speakers[spk_tag].append([start, end, spk_tag])
+
+    # Identificar cada speaker contra la voices library
+    result: dict[str, list[list[float]]] = {}
+    for spk_tag, segments in speakers.items():
+        name = speaker_recognition(str(audio_path), str(voices_folder), segments, [])
+        if name == "unknown":
+            result[spk_tag] = [[s[0], s[1]] for s in segments]
+
+    return result
