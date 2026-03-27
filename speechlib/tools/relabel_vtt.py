@@ -62,6 +62,13 @@ def main():
         default=DEFAULT_PAD_MIN_MS,
         help=f"Duracion minima en ms para embedding cuando --pad-short activo (default: {DEFAULT_PAD_MIN_MS})",
     )
+    parser.add_argument(
+        "--all-speakers",
+        action="store_true",
+        help="Re-evaluar TODOS los bloques del VTT (no solo [unknown]). "
+             "Permite detectar misidentificaciones: bloques ya nombrados cuyo "
+             "audio no supera threshold se reetiquetan a [unknown].",
+    )
     args = parser.parse_args()
 
     vtt_path = Path(args.vtt_path)
@@ -70,11 +77,14 @@ def main():
     threshold = args.threshold
     pad_short = args.pad_short
     pad_min_ms = args.pad_min_ms
+    all_speakers = args.all_speakers
 
     print(f"\nVTT      : {vtt_path.name}")
     print(f"Audio    : {Path(audio_path).name}")
     print(f"Voices   : {voices_folder}")
     print(f"Threshold: {threshold}")
+    if all_speakers:
+        print("Modo     : --all-speakers (re-evalua todos los bloques)")
     if pad_short:
         print(f"Padding  : EXPERIMENTAL — segmentos < {pad_min_ms}ms se expanden a {pad_min_ms}ms para embedding")
 
@@ -85,15 +95,17 @@ def main():
     print("\nParsando VTT...")
     header, blocks = parse_vtt(vtt_path)
     unknown_count = sum(1 for b in blocks if b.speaker == "unknown")
+    target_count = len(blocks) if all_speakers else unknown_count
     print(f"  {len(blocks)} segmentos totales, {unknown_count} [unknown]")
 
     tmp = Path(tempfile.mktemp(suffix=".wav"))
     changed = 0
     errors = 0
 
-    print(f"\nRe-etiquetando {unknown_count} segmentos [unknown]...")
+    label = "todos los" if all_speakers else f"{unknown_count} [unknown]"
+    print(f"\nRe-etiquetando {label} segmentos...")
     for i, block in enumerate(blocks):
-        if block.speaker != "unknown":
+        if not all_speakers and block.speaker != "unknown":
             continue
 
         try:
@@ -112,7 +124,7 @@ def main():
             errors += 1
             continue
 
-        if new_speaker != "unknown":
+        if new_speaker != block.speaker and (new_speaker != "unknown" or all_speakers):
             block.speaker = new_speaker
             changed += 1
 
@@ -127,8 +139,8 @@ def main():
     write_vtt(out_path, header, blocks)
 
     print(f"\n{'='*50}")
-    print(f"  Segmentos re-etiquetados : {changed} / {unknown_count}")
-    print(f"  Siguen como [unknown]    : {unknown_count - changed - errors}")
+    print(f"  Segmentos re-etiquetados : {changed} / {target_count}")
+    print(f"  Siguen como [unknown]    : {sum(1 for b in blocks if b.speaker == 'unknown')}")
     print(f"  Errores                  : {errors}")
     print(f"  Output                   : {out_path.name}")
     print(f"{'='*50}")
