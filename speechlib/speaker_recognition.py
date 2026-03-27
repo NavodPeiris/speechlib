@@ -58,7 +58,9 @@ def find_best_speaker(
             best_score = score
             best_speaker = speaker
 
-    logger.debug("Speaker scores: %s  best=%.3f threshold=%.2f", scores, best_score, threshold)
+    logger.debug(
+        "Speaker scores: %s  best=%.3f threshold=%.2f", scores, best_score, threshold
+    )
 
     if best_score < threshold:
         return "unknown"
@@ -96,7 +98,13 @@ def load_avg_voice_embeddings(voices_folder: Path) -> dict[str, np.ndarray]:
     return {name: np.mean(embs, axis=0) for name, embs in raw.items()}
 
 
-def speaker_recognition(file_name, voices_folder, segments, wildcards):
+def speaker_recognition(
+    file_name,
+    voices_folder,
+    segments,
+    wildcards,
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
+):
     inference = _get_inference()
 
     speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder))
@@ -139,7 +147,7 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
                 pass
             continue
 
-        best_speaker = find_best_speaker(test_emb, speaker_embeddings)
+        best_speaker = find_best_speaker(test_emb, speaker_embeddings, threshold)
 
         if best_speaker != "unknown":
             speakerId = best_speaker.split(".")[0]
@@ -181,6 +189,7 @@ def detect_unknown_speakers(
     pipeline = get_diarization_pipeline(hf_token)
 
     import torchaudio
+
     waveform, sample_rate = torchaudio.load(str(audio_path))
     diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
 
@@ -202,7 +211,9 @@ def detect_unknown_speakers(
     # Identificar cada speaker contra la voices library
     result: dict[str, list[list[float]]] = {}
     for spk_tag, segments in speakers.items():
-        name = speaker_recognition(str(audio_path), str(voices_folder), segments, [])
+        name = speaker_recognition(
+            str(audio_path), str(voices_folder), segments, [], threshold
+        )
         if name == "unknown":
             result[spk_tag] = [[s[0], s[1]] for s in segments]
 

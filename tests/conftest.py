@@ -4,6 +4,12 @@ import struct
 import math
 from pathlib import Path
 
+
+EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
+VOICES_DIR = EXAMPLES_DIR / "voices"
+OBAMA_VOICES = VOICES_DIR / "obama"
+ZACH_VOICES = VOICES_DIR / "zach"
+
 # Ensure ClearerVoice-Studio is on sys.path before any speechlib imports.
 # enhance_audio.py inserts this path at module level, but when speechlib/__init__.py
 # triggers that import the path may not yet be present (depends on test ordering).
@@ -25,7 +31,9 @@ def make_wav(path: Path, channels=1, sampwidth=2, framerate=16000, n_frames=160)
     return path
 
 
-def make_tone_wav(path: Path, freq=1000, amplitude=0.5, framerate=16000, duration_s=1.0):
+def make_tone_wav(
+    path: Path, freq=1000, amplitude=0.5, framerate=16000, duration_s=1.0
+):
     """WAV con tono senoidal puro — tiene contenido frecuencial real, medible en LUFS."""
     n_frames = int(framerate * duration_s)
     max_val = int(amplitude * 32767)
