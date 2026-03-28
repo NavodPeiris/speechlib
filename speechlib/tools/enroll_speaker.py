@@ -14,15 +14,15 @@ Usage:
 import shutil
 from pathlib import Path
 
-import torchaudio
+import soundfile as sf
 
 from speechlib.speaker_recognition import get_embedding, cosine_similarity
 
 
 def get_audio_duration(audio_path: Path) -> float:
     """Get duration of audio file in seconds."""
-    info = torchaudio.info(str(audio_path))
-    return info.num_frames / info.sample_rate
+    info = sf.info(str(audio_path))
+    return info.duration
 
 
 def select_clips(
