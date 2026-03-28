@@ -33,7 +33,6 @@ MATCHING_EMB = np.array([1.0, 0.0, 0.0])
 
 
 class TestSpeakerRecognitionAggregation:
-
     def test_single_matching_segment_among_many_orthogonal_returns_unknown(
         self, tmp_path
     ):
@@ -68,10 +67,10 @@ class TestSpeakerRecognitionAggregation:
         with patch("speechlib.speaker_recognition._get_inference") as mock_get_inf:
             mock_get_inf.return_value.side_effect = mock_inference
             with patch("speechlib.speaker_recognition.get_embedding") as mock_ge:
-                mock_ge.side_effect = lambda p: SPEAKER_A_EMB if "speaker_a" in p else None
-                result = speaker_recognition(
-                    str(audio), str(voices), segments, []
+                mock_ge.side_effect = lambda p: (
+                    SPEAKER_A_EMB if "speaker_a" in p else None
                 )
+                result = speaker_recognition(str(audio), str(voices), segments)
 
         assert result == "unknown", (
             f"Con 1 segmento matching y 9 orthogonales, el resultado deberia ser "
@@ -102,10 +101,10 @@ class TestSpeakerRecognitionAggregation:
         with patch("speechlib.speaker_recognition._get_inference") as mock_get_inf:
             mock_get_inf.return_value.side_effect = mock_inference
             with patch("speechlib.speaker_recognition.get_embedding") as mock_ge:
-                mock_ge.side_effect = lambda p: SPEAKER_A_EMB if "speaker_a" in p else None
-                result = speaker_recognition(
-                    str(audio), str(voices), segments, []
+                mock_ge.side_effect = lambda p: (
+                    SPEAKER_A_EMB if "speaker_a" in p else None
                 )
+                result = speaker_recognition(str(audio), str(voices), segments)
 
         assert result == "speaker_a", (
             f"Con 8/10 segmentos matching, el resultado deberia ser 'speaker_a', "
@@ -131,9 +130,9 @@ class TestSpeakerRecognitionAggregation:
         with patch("speechlib.speaker_recognition._get_inference") as mock_get_inf:
             mock_get_inf.return_value.side_effect = mock_inference
             with patch("speechlib.speaker_recognition.get_embedding") as mock_ge:
-                mock_ge.side_effect = lambda p: SPEAKER_A_EMB if "speaker_a" in p else None
-                result = speaker_recognition(
-                    str(audio), str(voices), segments, []
+                mock_ge.side_effect = lambda p: (
+                    SPEAKER_A_EMB if "speaker_a" in p else None
                 )
+                result = speaker_recognition(str(audio), str(voices), segments)
 
         assert result == "unknown"

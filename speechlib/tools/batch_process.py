@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..core_analysis import core_analysis
+from ..speaker_recognition import is_unidentified_speaker
 from .extract_unknown_speakers import extract_unknown_speakers
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,8 @@ def batch_process(
     for folder in folders:
         folder = Path(folder)
         audio_files = sorted(
-            f for f in folder.iterdir()
+            f
+            for f in folder.iterdir()
             if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
         )
 
@@ -120,7 +122,7 @@ def batch_process(
                 unknown_segs: dict[str, list[list[float]]] = {}
                 for seg in segments:
                     start, end, text, speaker = seg[0], seg[1], seg[2], seg[3]
-                    if speaker == "unknown":
+                    if is_unidentified_speaker(speaker):
                         # Recuperar tag original no disponible post-transcripción:
                         # usamos el speaker label tal cual viene del pipeline
                         unknown_segs.setdefault(speaker, []).append([start, end])
@@ -138,11 +140,13 @@ def batch_process(
                         max_clips=max_unknown_clips,
                     )
                     for tag, folder_path in extracted.items():
-                        report.unknown_speakers.append({
-                            "tag": tag,
-                            "audio": audio_path,
-                            "folder": folder_path,
-                        })
+                        report.unknown_speakers.append(
+                            {
+                                "tag": tag,
+                                "audio": audio_path,
+                                "folder": folder_path,
+                            }
+                        )
 
             except Exception:
                 logger.exception("Error procesando %s", audio_path)

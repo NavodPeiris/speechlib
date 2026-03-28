@@ -7,6 +7,7 @@ en la diarización. No debe colapsar todos los desconocidos en "unknown".
 
 Fixture mínimo: 2 speakers diarizados, ninguno en voices_folder.
 """
+
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
@@ -22,7 +23,9 @@ def _make_diarization_mock(speakers):
 
     mock_diarization = MagicMock()
     mock_diarization.itertracks.return_value = turns
-    mock_diarization.speaker_diarization = mock_diarization  # hasattr check in core_analysis
+    mock_diarization.speaker_diarization = (
+        mock_diarization  # hasattr check in core_analysis
+    )
     mock_pipeline = MagicMock()
     mock_pipeline.return_value = mock_diarization
     return mock_pipeline
@@ -42,12 +45,16 @@ def _pipeline_patches(tmp_path, mock_diarization_pipeline, transcribe_return):
         patch("speechlib.core_analysis.resample_to_16k", side_effect=state_passthrough),
         patch("speechlib.core_analysis.loudnorm", side_effect=state_passthrough),
         patch("speechlib.core_analysis.enhance_audio", side_effect=state_passthrough),
-        patch("speechlib.core_analysis._get_diarization_pipeline",
-              return_value=mock_diarization_pipeline),
+        patch(
+            "speechlib.core_analysis._get_diarization_pipeline",
+            return_value=mock_diarization_pipeline,
+        ),
         patch("torchaudio.load", return_value=(MagicMock(), 16000)),
         patch("speechlib.core_analysis.speaker_recognition", return_value="unknown"),
-        patch("speechlib.core_analysis.transcribe_full_aligned",
-              return_value=transcribe_return),
+        patch(
+            "speechlib.core_analysis.transcribe_full_aligned",
+            return_value=transcribe_return,
+        ),
         patch("speechlib.core_analysis.write_log_file"),
         patch("speechlib.core_analysis.merge_short_turns", side_effect=lambda s: s),
         patch("speechlib.core_analysis.absorb_micro_segments", side_effect=lambda s: s),
@@ -73,12 +80,16 @@ def test_two_unknown_speakers_get_unique_labels(tmp_path):
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
         patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch("speechlib.core_analysis.enhance_audio", side_effect=lambda s: s),
-        patch("speechlib.core_analysis._get_diarization_pipeline",
-              return_value=mock_pipeline),
+        patch(
+            "speechlib.core_analysis._get_diarization_pipeline",
+            return_value=mock_pipeline,
+        ),
         patch("torchaudio.load", return_value=(MagicMock(), 16000)),
         patch("speechlib.core_analysis.speaker_recognition", return_value="unknown"),
-        patch("speechlib.core_analysis.transcribe_full_aligned",
-              side_effect=fake_transcribe),
+        patch(
+            "speechlib.core_analysis.transcribe_full_aligned",
+            side_effect=fake_transcribe,
+        ),
         patch("speechlib.core_analysis.write_log_file"),
         patch("speechlib.core_analysis.merge_short_turns", side_effect=lambda s: s),
         patch("speechlib.core_analysis.absorb_micro_segments", side_effect=lambda s: s),
@@ -98,8 +109,8 @@ def test_two_unknown_speakers_get_unique_labels(tmp_path):
     assert "unknown" not in speakers_in_output, (
         "El label genérico 'unknown' no debe aparecer en el output"
     )
-    assert "unknown_001" in speakers_in_output
-    assert "unknown_002" in speakers_in_output
+    assert "SPEAKER_00" in speakers_in_output
+    assert "SPEAKER_01" in speakers_in_output
 
 
 def test_known_speaker_and_unknown_not_merged(tmp_path):
@@ -111,7 +122,7 @@ def test_known_speaker_and_unknown_not_merged(tmp_path):
     def fake_transcribe(audio, common, lang, model, quant):
         return [[seg[0], seg[1], "texto", seg[2]] for seg in common]
 
-    def fake_speaker_recognition(file, voices, segments, wildcards):
+    def fake_speaker_recognition(file, voices, segments):
         # SPEAKER_00 reconocido como Agustin, SPEAKER_01 no reconocido
         spk = segments[0][2] if segments else "SPEAKER_00"
         return "Agustin" if spk == "SPEAKER_00" else "unknown"
@@ -123,13 +134,19 @@ def test_known_speaker_and_unknown_not_merged(tmp_path):
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
         patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch("speechlib.core_analysis.enhance_audio", side_effect=lambda s: s),
-        patch("speechlib.core_analysis._get_diarization_pipeline",
-              return_value=mock_pipeline),
+        patch(
+            "speechlib.core_analysis._get_diarization_pipeline",
+            return_value=mock_pipeline,
+        ),
         patch("torchaudio.load", return_value=(MagicMock(), 16000)),
-        patch("speechlib.core_analysis.speaker_recognition",
-              side_effect=fake_speaker_recognition),
-        patch("speechlib.core_analysis.transcribe_full_aligned",
-              side_effect=fake_transcribe),
+        patch(
+            "speechlib.core_analysis.speaker_recognition",
+            side_effect=fake_speaker_recognition,
+        ),
+        patch(
+            "speechlib.core_analysis.transcribe_full_aligned",
+            side_effect=fake_transcribe,
+        ),
         patch("speechlib.core_analysis.write_log_file"),
         patch("speechlib.core_analysis.merge_short_turns", side_effect=lambda s: s),
         patch("speechlib.core_analysis.absorb_micro_segments", side_effect=lambda s: s),
@@ -149,7 +166,7 @@ def test_known_speaker_and_unknown_not_merged(tmp_path):
 
     speakers_in_output = {s[3] for s in segments}
     assert "Agustin" in speakers_in_output
-    assert "unknown_001" in speakers_in_output
+    assert "SPEAKER_01" in speakers_in_output
     assert "unknown" not in speakers_in_output
 
 
@@ -169,12 +186,16 @@ def test_single_unknown_speaker_is_unknown_001(tmp_path):
         patch("speechlib.core_analysis.resample_to_16k", side_effect=lambda s: s),
         patch("speechlib.core_analysis.loudnorm", side_effect=lambda s: s),
         patch("speechlib.core_analysis.enhance_audio", side_effect=lambda s: s),
-        patch("speechlib.core_analysis._get_diarization_pipeline",
-              return_value=mock_pipeline),
+        patch(
+            "speechlib.core_analysis._get_diarization_pipeline",
+            return_value=mock_pipeline,
+        ),
         patch("torchaudio.load", return_value=(MagicMock(), 16000)),
         patch("speechlib.core_analysis.speaker_recognition", return_value="unknown"),
-        patch("speechlib.core_analysis.transcribe_full_aligned",
-              side_effect=fake_transcribe),
+        patch(
+            "speechlib.core_analysis.transcribe_full_aligned",
+            side_effect=fake_transcribe,
+        ),
         patch("speechlib.core_analysis.write_log_file"),
         patch("speechlib.core_analysis.merge_short_turns", side_effect=lambda s: s),
         patch("speechlib.core_analysis.absorb_micro_segments", side_effect=lambda s: s),
@@ -193,5 +214,5 @@ def test_single_unknown_speaker_is_unknown_001(tmp_path):
         )
 
     speakers_in_output = {s[3] for s in segments}
-    assert "unknown_001" in speakers_in_output
+    assert "SPEAKER_00" in speakers_in_output
     assert "unknown" not in speakers_in_output

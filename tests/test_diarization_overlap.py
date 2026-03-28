@@ -27,6 +27,7 @@ def _make_pipeline_with_overlap():
         (turn_a, None, "SPEAKER_00"),
         (turn_b, None, "SPEAKER_01"),
     ])
+    mock_annotation.write_rttm = MagicMock()
 
     pipeline_instance = MagicMock()
     pipeline_instance.return_value = mock_annotation

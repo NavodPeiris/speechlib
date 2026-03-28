@@ -109,7 +109,7 @@ class TestSpeakerRecognitionUsesCustomThreshold:
         ):
             mock_get_inf.return_value.side_effect = mock_inference
             result = speaker_recognition(
-                str(wav), str(voices_base), segments, [], threshold=threshold
+                str(wav), str(voices_base), segments, threshold=threshold
             )
 
         assert result == expected
@@ -135,7 +135,7 @@ class TestDetectUnknownSpeakersThresholdPropagated:
         wav = OBAMA_VOICES / "obama2.wav"
         mock_pipeline = _make_diarization_mock(["SPEAKER_00"])
 
-        def fake_recognition(file, voices, segments, wildcards, threshold=0.40):
+        def fake_recognition(file, voices, segments, threshold=0.40):
             return "speaker_a" if threshold <= 0.40 else "unknown"
 
         with (

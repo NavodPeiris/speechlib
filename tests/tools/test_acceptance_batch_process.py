@@ -17,6 +17,7 @@ from conftest import make_tone_wav
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_audio_folder(base: Path, name: str, n_files: int = 1) -> Path:
     folder = base / name
     folder.mkdir(parents=True)
@@ -33,6 +34,7 @@ def _make_voices_dir(tmp_path: Path) -> Path:
 
 
 # ── AT: batch_process retorna reporte correcto ─────────────────────────────────
+
 
 def test_batch_process_returns_report_per_folder(tmp_path):
     """batch_process retorna un BatchReport con una entrada por carpeta."""
@@ -111,9 +113,13 @@ def test_batch_report_lists_unknown_speakers(tmp_path):
     unknown_dir = tmp_path / "_unknown"
 
     with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
-        mock_ca.return_value = [[0.0, 2.0, "hola", "Agustin"],
-                                [2.0, 4.0, "soy nuevo", "unknown"]]
-        with patch("speechlib.tools.batch_process.extract_unknown_speakers") as mock_ext:
+        mock_ca.return_value = [
+            [0.0, 2.0, "hola", "Agustin"],
+            [2.0, 4.0, "soy nuevo", "SPEAKER_01"],
+        ]
+        with patch(
+            "speechlib.tools.batch_process.extract_unknown_speakers"
+        ) as mock_ext:
             mock_ext.return_value = {
                 "SPEAKER_01": unknown_dir / "SPEAKER_01_recording_00"
             }

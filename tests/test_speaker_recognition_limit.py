@@ -7,6 +7,7 @@ por muestreo insuficiente.
 
 Fix: limit=60_000 (60 segundos expresado en ms).
 """
+
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import numpy as np
@@ -23,10 +24,12 @@ def _make_voices(tmp_path: Path) -> Path:
 
 def _fake_slice(call_counter):
     """Mock de slice_and_save: crea archivo dummy sin procesar audio."""
+
     def _slice(src, start, end, dest):
         call_counter[0] += 1
         Path(dest).parent.mkdir(parents=True, exist_ok=True)
         Path(dest).write_bytes(b"fake_audio")
+
     return _slice
 
 
@@ -53,9 +56,15 @@ def test_limit_not_exceeded_after_single_short_segment(tmp_path):
     segments = [[i * 5.0, (i + 1) * 5.0, "SPEAKER_00"] for i in range(6)]
     call_count = [0]
 
-    with patch("speechlib.speaker_recognition.slice_and_save", side_effect=_fake_slice(call_count)):
-        with patch("speechlib.speaker_recognition._get_inference", return_value=_high_score_inference()):
-            speaker_recognition(str(wav), str(voices), segments, [])
+    with patch(
+        "speechlib.speaker_recognition.slice_and_save",
+        side_effect=_fake_slice(call_count),
+    ):
+        with patch(
+            "speechlib.speaker_recognition._get_inference",
+            return_value=_high_score_inference(),
+        ):
+            speaker_recognition(str(wav), str(voices), segments)
 
     assert call_count[0] > 1, (
         f"speaker_recognition proceso solo {call_count[0]} segmento(s). "
@@ -74,9 +83,15 @@ def test_limit_breaks_after_60_seconds_of_audio(tmp_path):
     segments = [[i * 5.0, (i + 1) * 5.0, "SPEAKER_00"] for i in range(20)]
     call_count = [0]
 
-    with patch("speechlib.speaker_recognition.slice_and_save", side_effect=_fake_slice(call_count)):
-        with patch("speechlib.speaker_recognition._get_inference", return_value=_high_score_inference()):
-            speaker_recognition(str(wav), str(voices), segments, [])
+    with patch(
+        "speechlib.speaker_recognition.slice_and_save",
+        side_effect=_fake_slice(call_count),
+    ):
+        with patch(
+            "speechlib.speaker_recognition._get_inference",
+            return_value=_high_score_inference(),
+        ):
+            speaker_recognition(str(wav), str(voices), segments)
 
     # Con limit=60_000ms y segmentos de 5s, rompe ~segmento 12 (12*5000=60000ms)
     assert call_count[0] < 20, (

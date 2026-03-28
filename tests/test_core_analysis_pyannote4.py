@@ -13,6 +13,7 @@ def _make_mock_pipeline(mock_cls, segments):
     mock_pipeline = MagicMock()
     mock_diarization = MagicMock(spec=[])
     mock_diarization.itertracks = MagicMock(return_value=segments)
+    mock_diarization.write_rttm = MagicMock()
     mock_pipeline.return_value = mock_diarization
     mock_cls.from_pretrained.return_value = mock_pipeline
     return mock_pipeline, mock_diarization

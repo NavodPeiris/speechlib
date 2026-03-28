@@ -2,6 +2,7 @@
 AT: tools usan artifacts_dir/ para sus outputs (Slice 8).
 - batch_process: unknown speakers → artifacts_dir/unknown_speakers/
 """
+
 from pathlib import Path
 from unittest.mock import patch
 import pytest
@@ -26,7 +27,7 @@ def test_batch_process_unknown_clips_go_to_artifacts_dir(tmp_path):
 
     # core_analysis mocked (requires GPU/HF): returns one unknown segment
     with patch("speechlib.tools.batch_process.core_analysis") as mock_ca:
-        mock_ca.return_value = [[0.0, 5.0, "hello", "unknown"]]
+        mock_ca.return_value = [[0.0, 5.0, "hello", "SPEAKER_00"]]
         report = batch_process(
             folders=[folder],
             voices_folder=voices,

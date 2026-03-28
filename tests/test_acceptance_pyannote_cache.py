@@ -31,6 +31,7 @@ def _make_mock_pipeline():
     mock_annotation.itertracks = MagicMock(return_value=[
         (turn, None, "SPEAKER_00"),
     ])
+    mock_annotation.write_rttm = MagicMock()
 
     pipeline_instance = MagicMock()
     pipeline_instance.return_value = mock_annotation

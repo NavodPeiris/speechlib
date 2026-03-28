@@ -1,4 +1,5 @@
 import os
+import json
 import threading
 import time
 from .wav_segmenter import wav_file_segmentation
@@ -13,8 +14,19 @@ if not hasattr(torchaudio, "list_audio_backends"):
 
 from .diarization import get_diarization_pipeline as _get_diarization_pipeline
 from .speaker_recognition import speaker_recognition
+
+try:
+    from pyannote.database.util import load_rttm as _load_rttm
+except ImportError:
+    _load_rttm = None
 from .write_log_file import write_log_file
-from .segment_merger import merge_short_turns, merge_transcript_turns, group_by_sentences, group_by_speaker, absorb_micro_segments
+from .segment_merger import (
+    merge_short_turns,
+    merge_transcript_turns,
+    group_by_sentences,
+    group_by_speaker,
+    absorb_micro_segments,
+)
 
 from pathlib import Path
 from .audio_state import AudioState
@@ -47,9 +59,7 @@ def core_analysis(
     grouping_mode: str = "sentences",
 ):
     if log_folder is None:
-        log_folder = os.path.join(
-            os.path.dirname(os.path.abspath(file_name)), "output"
-        )
+        log_folder = os.path.join(os.path.dirname(os.path.abspath(file_name)), "output")
 
     # <-------------------PreProcessing file-------------------------->
 
@@ -57,10 +67,15 @@ def core_analysis(
     state.artifacts_dir.mkdir(parents=True, exist_ok=True)
     cached_16k = state.artifacts_dir / "16k.wav"
     if cached_16k.exists():
-        state = state.model_copy(update={
-            "working_path": cached_16k,
-            "is_wav": True, "is_mono": True, "is_16bit": True, "is_16khz": True,
-        })
+        state = state.model_copy(
+            update={
+                "working_path": cached_16k,
+                "is_wav": True,
+                "is_mono": True,
+                "is_16bit": True,
+                "is_16khz": True,
+            }
+        )
     else:
         state = convert_to_wav(state)
         state = convert_to_mono(state)
@@ -84,26 +99,50 @@ def core_analysis(
 
     speaker_tags = []
 
-    pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
+    rttm_path = state.artifacts_dir / "diarization.rttm"
 
-    waveform, sample_rate = torchaudio.load(str(state.working_path))
-    print("running diarization...")
-    with measure("diarization", gpu=True), kmeasure("diarization"):
-        diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
-    print("diarization done.")
+    if rttm_path.exists():
+        try:
+            annotation = next(iter(_load_rttm(str(rttm_path)).values()))
+            print("diarization loaded from cache.")
+        except Exception as e:
+            print(f"WARNING: could not load diarization.rttm ({e}), recomputing.")
+            rttm_path.unlink(missing_ok=True)
+            pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
+            waveform, sample_rate = torchaudio.load(str(state.working_path))
+            print("running diarization...")
+            with measure("diarization", gpu=True), kmeasure("diarization"):
+                diarization = pipeline(
+                    {"waveform": waveform, "sample_rate": sample_rate}
+                )
+            print("diarization done.")
+            annotation = (
+                diarization.speaker_diarization
+                if hasattr(diarization, "speaker_diarization")
+                else diarization
+            )
+            with open(rttm_path, "w") as f:
+                annotation.write_rttm(f)
+    else:
+        pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
+        waveform, sample_rate = torchaudio.load(str(state.working_path))
+        print("running diarization...")
+        with measure("diarization", gpu=True), kmeasure("diarization"):
+            diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        print("diarization done.")
+        annotation = (
+            diarization.speaker_diarization
+            if hasattr(diarization, "speaker_diarization")
+            else diarization
+        )
+        with open(rttm_path, "w") as f:
+            annotation.write_rttm(f)
 
     speakers = {}
 
     common = []
 
-    # create a dictionary of SPEAKER_XX to real name mappings
     speaker_map = {}
-
-    annotation = (
-        diarization.speaker_diarization
-        if hasattr(diarization, "speaker_diarization")
-        else diarization
-    )
     for turn, _, speaker in annotation.itertracks(yield_label=True):
         start = round(turn.start, 1)
         end = round(turn.end, 1)
@@ -118,28 +157,34 @@ def core_analysis(
         speakers[speaker].append([start, end, speaker])
 
     if voices_folder != None and voices_folder != "":
-        identified = []
+        speaker_map_path = state.artifacts_dir / "speaker_map.json"
 
-        start_time = int(time.time())
-        print("running speaker recognition...")
-        for spk_tag, spk_segments in speakers.items():
-            spk_name = speaker_recognition(
-                str(state.working_path), voices_folder, spk_segments, identified
+        if speaker_map_path.exists():
+            speaker_map = json.loads(speaker_map_path.read_text(encoding="utf-8"))
+            print("speaker_map loaded from cache.")
+        else:
+            identified = []
+
+            start_time = int(time.time())
+            print("running speaker recognition...")
+            for spk_tag, spk_segments in speakers.items():
+                spk_name = speaker_recognition(
+                    str(state.working_path), voices_folder, spk_segments
+                )
+                spk = spk_name
+                identified.append(spk)
+                speaker_map[spk_tag] = spk
+            end_time = int(time.time())
+            elapsed_time = int(end_time - start_time)
+            print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
+
+            for spk_tag in speaker_tags:
+                if speaker_map.get(spk_tag) == "unknown":
+                    speaker_map[spk_tag] = spk_tag
+
+            speaker_map_path.write_text(
+                json.dumps(speaker_map, ensure_ascii=False, indent=2), encoding="utf-8"
             )
-            spk = spk_name
-            identified.append(spk)
-            speaker_map[spk_tag] = spk
-        end_time = int(time.time())
-        elapsed_time = int(end_time - start_time)
-        print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
-
-        # Assign unique unknown_NNN labels to unrecognized speakers,
-        # in first-appearance order (speaker_tags preserves diarization order).
-        unknown_counter = 0
-        for spk_tag in speaker_tags:
-            if speaker_map.get(spk_tag) == "unknown":
-                unknown_counter += 1
-                speaker_map[spk_tag] = f"unknown_{unknown_counter:03d}"
 
     keys_to_remove = []
     merged = []
@@ -225,7 +270,13 @@ def core_analysis(
 
     # writing log file
     with measure("write_log_file"):
-        write_log_file(common_segments, log_folder, str(state.working_path), language, output_format)
+        write_log_file(
+            common_segments,
+            log_folder,
+            str(state.working_path),
+            language,
+            output_format,
+        )
 
     # Wait for background compression to finish
     if compress_thread is not None:

@@ -2,6 +2,7 @@
 AT: speaker_recognition usa artifacts_dir/tmp/ en lugar de CWD/temp/.
 Llama a la funcion directamente con un segmento sintetico para forzar su ejecucion.
 """
+
 import pytest
 from pathlib import Path
 from conftest import make_tone_wav
@@ -29,7 +30,7 @@ def sr_run(tmp_path_factory, request):
 
     # Forzar ejecucion de speaker_recognition con un segmento artificial
     segments = [[0.0, 3.0, "SPEAKER_00"]]
-    speaker_recognition(str(state.working_path), str(VOICES), segments, [])
+    speaker_recognition(str(state.working_path), str(VOICES), segments)
 
     return {"artifacts_dir": state.artifacts_dir, "working_path": state.working_path}
 

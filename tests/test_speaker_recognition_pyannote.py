@@ -90,8 +90,6 @@ def test_speaker_recognition_compares_all_voice_files(tmp_path):
         from speechlib.speaker_recognition import speaker_recognition
 
         segments = [[0.0, 1.0, "SPEAKER_00"]]
-        result = speaker_recognition(
-            str(audio_file), str(voices_dir), segments, wildcards=[]
-        )
+        result = speaker_recognition(str(audio_file), str(voices_dir), segments)
 
         assert mock_inference.call_count >= 1

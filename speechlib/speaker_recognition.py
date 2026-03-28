@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Union
 import numpy as np
@@ -13,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 SPEAKER_SIMILARITY_THRESHOLD = 0.40
 VOICES_SKIP_PREFIX = "_"
+_SPEAKER_TAG_RE = re.compile(r"^SPEAKER_\d+$")
+
+
+def is_unidentified_speaker(speaker: str) -> bool:
+    """True si el speaker no ha sido identificado: tag pyannote o literal 'unknown'."""
+    return speaker == "unknown" or bool(_SPEAKER_TAG_RE.match(speaker))
+
 
 _embedding_model = None
 _inference = None
@@ -102,7 +110,6 @@ def speaker_recognition(
     file_name,
     voices_folder,
     segments,
-    wildcards,
     threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
 ):
     inference = _get_inference()
@@ -201,7 +208,7 @@ def detect_unknown_speakers(
     result: dict[str, list[list[float]]] = {}
     for spk_tag, segments in speakers.items():
         name = speaker_recognition(
-            str(audio_path), str(voices_folder), segments, [], threshold
+            str(audio_path), str(voices_folder), segments, threshold
         )
         if name == "unknown":
             result[spk_tag] = [[s[0], s[1]] for s in segments]
