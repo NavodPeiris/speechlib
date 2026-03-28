@@ -1,12 +1,5 @@
-"""
-Speech enhancement using ClearVoice MossFormer2.
-"""
-
 import sys
-
 sys.path.insert(0, r"c:\workspace\#dev\ClearerVoice-Studio\clearvoice")
-
-from .tools.enhance_audio_patch import patch_tqdm
 from clearvoice import ClearVoice
 from .audio_state import AudioState
 from .step_timer import timed
@@ -14,8 +7,6 @@ from .kernel_profiler import timed as ktimed
 
 _clearvoice_model = None
 _MODEL_NAME = "MossFormer2_SE_48K"
-
-patch_tqdm(force_display=True)
 
 
 @timed("enhance_audio")
@@ -32,10 +23,11 @@ def enhance_audio(state: AudioState) -> AudioState:
     global _clearvoice_model
     if _clearvoice_model is None:
         _clearvoice_model = ClearVoice(
-            task="speech_enhancement",
+            task='speech_enhancement',
             model_names=[_MODEL_NAME],
         )
 
+    # Directorio temporal para que ClearVoice escriba su output
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = state.artifacts_dir / "_enhance_tmp"
     result_audio = _clearvoice_model(
@@ -43,6 +35,7 @@ def enhance_audio(state: AudioState) -> AudioState:
         output_path=str(tmp_dir),
         online_write=False,
     )
+    # Mover resultado al path canonico
     tmp_out = tmp_dir / _MODEL_NAME / state.working_path.name
     tmp_out.parent.mkdir(parents=True, exist_ok=True)
     _clearvoice_model.write(result_audio, output_path=str(tmp_out))

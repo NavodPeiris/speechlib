@@ -5,10 +5,12 @@ Reuses speechlib pipeline infrastructure.
 
 Usage:
     python -m speechlib.tools.normalize_and_clear "path/to/audio.m4a"
-    python -m speechlib.tools.normalize_and_clear "path/to/audio.m4a" --skip-clear
+    python -m speechlib.tools.normalize_and_clear "path/to/*.m4a"
+    python -m speechlib.tools.normalize_and_clear "path/to/*.m4a" --skip-clear
 """
 
 import argparse
+import glob
 import shutil
 import time
 from datetime import datetime
@@ -115,15 +117,75 @@ def normalize_and_clear(
     return cached_processed
 
 
+def get_files(pattern: str) -> list[Path]:
+    """Get files matching glob pattern."""
+    pattern_path = Path(pattern)
+
+    if pattern_path.exists() and pattern_path.is_file():
+        return [pattern_path]
+
+    if pattern_path.exists() and pattern_path.is_dir():
+        return []
+
+    parent = pattern_path.parent
+    stem = pattern_path.name
+
+    if parent.exists():
+        files = sorted(parent.glob(stem))
+        if files:
+            return files
+
+    files = sorted(Path.cwd().glob(pattern))
+    if files:
+        return files
+
+    return []
+
+
 def main():
     parser = argparse.ArgumentParser(description="Normalize and clear audio files")
-    parser.add_argument("input", help="Input audio file")
     parser.add_argument(
-        "--skip-clear", action="store_true", help="Skip ClearVoice enhancement"
+        "input",
+        nargs="+",
+        help="Input audio file(s) or glob pattern (e.g., *.m4a)",
+    )
+    parser.add_argument(
+        "--skip-clear",
+        action="store_true",
+        help="Skip ClearVoice enhancement",
     )
 
     args = parser.parse_args()
-    normalize_and_clear(args.input, args.skip_clear)
+
+    files = []
+    for pattern in args.input:
+        matched = get_files(pattern)
+        files.extend(matched)
+
+    if not files:
+        print(f"No files found matching: {args.input}")
+        return
+
+    print(f"{'=' * 60}")
+    print(f"  Found {len(files)} file(s)")
+    print(f"{'=' * 60}")
+
+    success = 0
+    failed = 0
+
+    for i, file_path in enumerate(files, 1):
+        print(f"\n[{i}/{len(files)}] {file_path.name}")
+        try:
+            normalize_and_clear(file_path, args.skip_clear)
+            success += 1
+            print(f"  OK")
+        except Exception as e:
+            failed += 1
+            print(f"  FAILED: {e}")
+
+    print(f"\n{'=' * 60}")
+    print(f"  Summary: {success} OK, {failed} failed of {len(files)} files")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
