@@ -109,24 +109,18 @@ def speaker_recognition(
 
     speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder))
 
-    from collections import defaultdict
-
-    Id_count = defaultdict(int)
-
     folder_name = str(Path(file_name).parent / "tmp")
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-    i = 0
-
     limit = 60_000  # 60 segundos expresado en ms
     duration = 0
+    collected_embeddings = []
 
-    for segment in segments:
+    for i, segment in enumerate(segments, 1):
         start_ms = segment[0] * 1000
         end_ms = segment[1] * 1000
-        i = i + 1
         file = (
             folder_name
             + "/"
@@ -138,7 +132,8 @@ def speaker_recognition(
         slice_and_save(file_name, start_ms, end_ms, file)
 
         try:
-            test_emb = inference(file)
+            emb = inference(file)
+            collected_embeddings.append(np.asarray(emb).flatten())
         except Exception as e:
             print(f"Error extracting embedding from segment: {e}")
             try:
@@ -147,23 +142,17 @@ def speaker_recognition(
                 pass
             continue
 
-        best_speaker = find_best_speaker(test_emb, speaker_embeddings, threshold)
-
-        if best_speaker != "unknown":
-            speakerId = best_speaker.split(".")[0]
-            if speakerId not in wildcards:
-                Id_count[speakerId] += 1
-
         os.remove(file)
 
-        current_pred = max(Id_count, key=Id_count.get) if Id_count else "unknown"
-
         duration += end_ms - start_ms
-        if duration >= limit and current_pred != "unknown":
+        if duration >= limit:
             break
 
-    most_common_Id = max(Id_count, key=Id_count.get) if Id_count else "unknown"
-    return most_common_Id
+    if not collected_embeddings:
+        return "unknown"
+
+    avg_emb = np.mean(collected_embeddings, axis=0)
+    return find_best_speaker(avg_emb, speaker_embeddings, threshold)
 
 
 def detect_unknown_speakers(
