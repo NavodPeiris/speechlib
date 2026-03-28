@@ -1,8 +1,8 @@
-# Plan: Diagnóstico mínimo — Agustin reconocido como [unknown] en 1:42:27
+# Plan: Diagnóstico mínimo — Speaker A reconocido como [unknown] en 1:42:27
 
 ## Síntoma
 
-`Voz 260320_164522_16k_121520_es.vtt` etiqueta segmentos de Agustin como `[unknown]`
+`Voz 260320_164522_16k_121520_es.vtt` etiqueta segmentos de Speaker A como `[unknown]`
 a partir de ~01:42:17. El mismo speaker es identificado correctamente en otras partes
 del archivo.
 
@@ -10,8 +10,8 @@ del archivo.
 
 | # | Hipótesis | Observable |
 |---|-----------|------------|
-| H1 | Cosine similarity de Agustin en ese tramo < threshold (0.40) | `score_agustin < 0.40` |
-| H2 | Diarización asignó el tramo a un SPEAKER_TAG diferente cuyo pool de segmentos tiene baja similitud con Agustin | speaker_tag ≠ tag principal de Agustin |
+| H1 | Cosine similarity de Speaker A en ese tramo < threshold (0.40) | `score_agustin < 0.40` |
+| H2 | Diarización asignó el tramo a un SPEAKER_TAG diferente cuyo pool de segmentos tiene baja similitud con Speaker A | speaker_tag ≠ tag principal de Speaker A |
 | H3 | Segmento demasiado corto / silencio / ruido → embedding degenerado | error o score ~0 para todos |
 | H4 | VTT generado con threshold distinto al actual (0.75 original) | irrelevante si se re-genera |
 
@@ -39,7 +39,7 @@ python speechlib/tools/diagnose_speaker.py \
    - calcular promedio
 4. Imprimir tabla: `speaker | min_score | avg_score | max_score | PASS/FAIL vs 0.40`
 
-**Qué revela:** si H1 es correcta, `Agustin avg < 0.40`. Si H3, todos los scores
+**Qué revela:** si H1 es correcta, `Speaker A avg < 0.40`. Si H3, todos los scores
 son cercanos a 0 o NaN. Si H2, requiere inspección de diarización (fuera del scope).
 
 ## Qué NO hace este diagnóstico

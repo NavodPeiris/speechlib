@@ -2,7 +2,7 @@
 
 ## Objective
 
-Extend `speechlib` pipeline to process multiple real audio recordings, identify known speakers against a voice library, and extract unknown speakers as WAV clips for later naming and re-ingestion. Target recordings: two folders with Agustin (known) + unknown persons.
+Extend `speechlib` pipeline to process multiple real audio recordings, identify known speakers against a voice library, and extract unknown speakers as WAV clips for later naming and re-ingestion. Target recordings: two folders with Speaker A (known) + unknown persons.
 
 ---
 
@@ -53,12 +53,12 @@ All session-generated code lives under `speechlib/tools/`. Tests under `tests/to
 **Empirical data from real recordings:**
 | Condition | Score range |
 |---|---|
-| Agustin (known, same speaker) | 0.35 – 0.504 |
+| Speaker A (known, same speaker) | 0.35 – 0.504 |
 | Jolyon (false positive on Patricio segments) | 0.338 – 0.398 |
 | Unknown women (Ina TRE recording) | 0.060 – 0.270 |
 
 **Decision:** threshold = `0.40`
-- Catches Agustin (max 0.504, several segments > 0.40).
+- Catches Speaker A (max 0.504, several segments > 0.40).
 - Eliminates Jolyon false positive (max 0.398 < 0.40).
 - Rejects all unknown voices (all scores < 0.30).
 
@@ -82,7 +82,7 @@ All session-generated code lives under `speechlib/tools/`. Tests under `tests/to
 
 ### VTT relabeling without reprocessing
 - `relabel_vtt.py` re-labeled 524/654 segments (80%) of a 135-min recording in ~5 min.
-- Confirmed via `diagnose_speaker.py`: at timestamp 01:42:17, Agustin avg=0.516 → PASS with threshold 0.40. The `[unknown]` label was a stale artifact from the old 0.75 threshold run.
+- Confirmed via `diagnose_speaker.py`: at timestamp 01:42:17, Speaker A avg=0.516 → PASS with threshold 0.40. The `[unknown]` label was a stale artifact from the old 0.75 threshold run.
 - Original VTT not modified; corrected version written as `_relabeled.vtt`.
 
 ### Experimental `--pad-short`
@@ -133,7 +133,7 @@ All session-generated code lives under `speechlib/tools/`. Tests under `tests/to
 
 ```
 transcript_samples/voices/
-  Agustin/           # 6 segments (pre-existing)
+  Speaker A/           # 6 segments (pre-existing)
   Patricio Renner/   # 5 segments (added from 20260320 recording, mobile quality)
   Ina Gonzalez/      # 5 segments (added from 20260318 recording, mobile quality)
   Cristobal/
