@@ -31,7 +31,7 @@ def test_speaker_recognition_end_to_end():
         [10.0, 20.0, "SPEAKER_01"],
     ]
 
-    result = speaker_recognition(audio_file, voices_folder, segments, wildcards=[])
+    result = speaker_recognition(audio_file, voices_folder, segments)
 
     assert result in ["obama", "zach", "unknown"], f"Unexpected result: {result}"
     print(f"Speaker recognition result: {result}")

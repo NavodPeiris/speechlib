@@ -1,22 +1,42 @@
 import os
-from pyannote.audio import Pipeline
+import json
+import threading
 import time
 from .wav_segmenter import wav_file_segmentation
-import torch
+from .transcribe import transcribe_full_aligned
+from .step_timer import measure, print_report
+from .kernel_profiler import measure as kmeasure, print_report as kprint_report
 
 import torchaudio
 
 if not hasattr(torchaudio, "list_audio_backends"):
     torchaudio.list_audio_backends = lambda: ["sox"]
 
+from .diarization import get_diarization_pipeline as _get_diarization_pipeline
 from .speaker_recognition import speaker_recognition
+
+try:
+    from pyannote.database.util import load_rttm as _load_rttm
+except ImportError:
+    _load_rttm = None
 from .write_log_file import write_log_file
+from .segment_merger import (
+    merge_short_turns,
+    merge_transcript_turns,
+    group_by_sentences,
+    group_by_speaker,
+    absorb_micro_segments,
+)
 
 from pathlib import Path
 from .audio_state import AudioState
 from .re_encode import re_encode
 from .convert_to_mono import convert_to_mono
 from .convert_to_wav import convert_to_wav
+from .resample_to_16k import resample_to_16k
+from .loudnorm import loudnorm
+from .enhance_audio import enhance_audio
+from .compress_audio import compress_audio
 
 
 # by default use google speech-to-text API
@@ -26,59 +46,103 @@ def core_analysis(
     voices_folder,
     log_folder,
     language,
-    modelSize,
-    ACCESS_TOKEN,
-    model_type,
+    modelSize="large-v3-turbo",
+    ACCESS_TOKEN=None,
+    model_type="faster-whisper",
     quantization=False,
     custom_model_path=None,
     hf_model_id=None,
     aai_api_key=None,
+    output_format: str = "vtt",
+    skip_enhance: bool = False,
+    compress: bool = False,
+    grouping_mode: str = "sentences",
 ):
+    if log_folder is None:
+        log_folder = os.path.join(os.path.dirname(os.path.abspath(file_name)), "output")
 
     # <-------------------PreProcessing file-------------------------->
 
     state = AudioState(source_path=Path(file_name), working_path=Path(file_name))
-    state = convert_to_wav(state)
-    state = convert_to_mono(state)
-    state = re_encode(state)
+    state.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    cached_16k = state.artifacts_dir / "16k.wav"
+    if cached_16k.exists():
+        state = state.model_copy(
+            update={
+                "working_path": cached_16k,
+                "is_wav": True,
+                "is_mono": True,
+                "is_16bit": True,
+                "is_16khz": True,
+            }
+        )
+    else:
+        state = convert_to_wav(state)
+        state = convert_to_mono(state)
+        state = re_encode(state)
+        state = resample_to_16k(state)
+    state = loudnorm(state)
+    if not skip_enhance:
+        state = enhance_audio(state)
 
     # <--------------------running analysis--------------------------->
 
+    # Launch compression in background thread (CPU) while diarization runs (GPU)
+    compress_thread = None
+    if compress:
+        compress_thread = threading.Thread(
+            target=compress_audio,
+            args=(state.working_path, state.source_path.with_suffix(".m4a")),
+            daemon=True,
+        )
+        compress_thread.start()
+
     speaker_tags = []
 
-    pipeline = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-community-1", token=ACCESS_TOKEN
-    )
+    rttm_path = state.artifacts_dir / "diarization.rttm"
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-        os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+    if rttm_path.exists():
+        try:
+            annotation = next(iter(_load_rttm(str(rttm_path)).values()))
+            print("diarization loaded from cache.")
+        except Exception as e:
+            print(f"WARNING: could not load diarization.rttm ({e}), recomputing.")
+            rttm_path.unlink(missing_ok=True)
+            pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
+            waveform, sample_rate = torchaudio.load(str(state.working_path))
+            print("running diarization...")
+            with measure("diarization", gpu=True), kmeasure("diarization"):
+                diarization = pipeline(
+                    {"waveform": waveform, "sample_rate": sample_rate}
+                )
+            print("diarization done.")
+            annotation = (
+                diarization.speaker_diarization
+                if hasattr(diarization, "speaker_diarization")
+                else diarization
+            )
+            with open(rttm_path, "w") as f:
+                annotation.write_rttm(f)
     else:
-        device = torch.device("cpu")
-
-    pipeline.to(device)
-
-    start_time = int(time.time())
-    print("running diarization...")
-    diarization = pipeline(str(state.working_path))
-    end_time = int(time.time())
-    elapsed_time = int(end_time - start_time)
-    print(f"diarization done. Time taken: {elapsed_time} seconds.")
+        pipeline = _get_diarization_pipeline(ACCESS_TOKEN)
+        waveform, sample_rate = torchaudio.load(str(state.working_path))
+        print("running diarization...")
+        with measure("diarization", gpu=True), kmeasure("diarization"):
+            diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        print("diarization done.")
+        annotation = (
+            diarization.speaker_diarization
+            if hasattr(diarization, "speaker_diarization")
+            else diarization
+        )
+        with open(rttm_path, "w") as f:
+            annotation.write_rttm(f)
 
     speakers = {}
 
     common = []
 
-    # create a dictionary of SPEAKER_XX to real name mappings
     speaker_map = {}
-
-    annotation = (
-        diarization.speaker_diarization
-        if hasattr(diarization, "speaker_diarization")
-        else diarization
-    )
     for turn, _, speaker in annotation.itertracks(yield_label=True):
         start = round(turn.start, 1)
         end = round(turn.end, 1)
@@ -93,20 +157,35 @@ def core_analysis(
         speakers[speaker].append([start, end, speaker])
 
     if voices_folder != None and voices_folder != "":
-        identified = []
+        speaker_map_path = state.artifacts_dir / "speaker_map.json"
 
-        start_time = int(time.time())
-        print("running speaker recognition...")
-        for spk_tag, spk_segments in speakers.items():
-            spk_name = speaker_recognition(
-                str(state.working_path), voices_folder, spk_segments, identified
+        if speaker_map_path.exists():
+            speaker_map = json.loads(speaker_map_path.read_text(encoding="utf-8"))
+            print("speaker_map loaded from cache.")
+        else:
+            identified = []
+
+            start_time = int(time.time())
+            print("running speaker recognition...")
+            for spk_tag, spk_segments in speakers.items():
+                spk_name = speaker_recognition(
+                    str(state.working_path), voices_folder, spk_segments,
+                    enhanced=state.is_enhanced,
+                )
+                spk = spk_name
+                identified.append(spk)
+                speaker_map[spk_tag] = spk
+            end_time = int(time.time())
+            elapsed_time = int(end_time - start_time)
+            print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
+
+            for spk_tag in speaker_tags:
+                if speaker_map.get(spk_tag) == "unknown":
+                    speaker_map[spk_tag] = spk_tag
+
+            speaker_map_path.write_text(
+                json.dumps(speaker_map, ensure_ascii=False, indent=2), encoding="utf-8"
             )
-            spk = spk_name
-            identified.append(spk)
-            speaker_map[spk_tag] = spk
-        end_time = int(time.time())
-        elapsed_time = int(end_time - start_time)
-        print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
 
     keys_to_remove = []
     merged = []
@@ -136,41 +215,74 @@ def core_analysis(
         del speakers[key]
         del speaker_map[key]
 
+    # absorb micro-segments into longer neighbors, then merge same-speaker turns
+    common = absorb_micro_segments(common)
+    common = merge_short_turns(common)
+    speakers = {}
+    for segment in common:
+        spk = segment[2]
+        if spk not in speakers:
+            speakers[spk] = []
+        speakers[spk].append(segment)
+
     # transcribing the texts differently according to speaker
-    start_time = int(time.time())
     print("running transcription...")
-    for spk_tag, spk_segments in speakers.items():
-        spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(
-            str(state.working_path),
-            spk_segments,
-            language,
-            modelSize,
-            model_type,
-            quantization,
-            custom_model_path,
-            hf_model_id,
-            aai_api_key,
-        )
-        speakers[spk_tag] = segment_out
-    end_time = int(time.time())
-    elapsed_time = int(end_time - start_time)
-    print(f"transcription done. Time taken: {elapsed_time} seconds.")
+    with measure("transcription", gpu=True):
+        if model_type == "faster-whisper":
+            common_segments = transcribe_full_aligned(
+                str(state.working_path), common, language, modelSize, quantization
+            )
+        else:
+            for spk_tag, spk_segments in speakers.items():
+                spk = speaker_map.get(spk_tag, spk_tag)
+                segment_out = wav_file_segmentation(
+                    str(state.working_path),
+                    spk_segments,
+                    language,
+                    modelSize,
+                    model_type,
+                    quantization,
+                    custom_model_path,
+                    hf_model_id,
+                    aai_api_key,
+                )
+                speakers[spk_tag] = segment_out
+    print("transcription done.")
 
-    common_segments = []
+    if model_type != "faster-whisper":
+        common_segments = []
+        for item in common:
+            speaker = item[2]
+            start = item[0]
+            end = item[1]
 
-    for item in common:
-        speaker = item[2]
-        start = item[0]
-        end = item[1]
+            for spk_tag, spk_segments in speakers.items():
+                if speaker == speaker_map.get(spk_tag, spk_tag):
+                    for segment in spk_segments:
+                        if start == segment[0] and end == segment[1]:
+                            common_segments.append([start, end, segment[2], speaker])
 
-        for spk_tag, spk_segments in speakers.items():
-            if speaker == speaker_map[spk_tag]:
-                for segment in spk_segments:
-                    if start == segment[0] and end == segment[1]:
-                        common_segments.append([start, end, segment[2], speaker])
+    # group post-transcription segments according to grouping_mode
+    if model_type == "faster-whisper":
+        if grouping_mode == "sentences":
+            common_segments = group_by_sentences(common_segments)
+        else:
+            common_segments = group_by_speaker(common_segments)
 
     # writing log file
-    write_log_file(common_segments, log_folder, str(state.working_path), language)
+    with measure("write_log_file"):
+        write_log_file(
+            common_segments,
+            log_folder,
+            str(state.working_path),
+            language,
+            output_format,
+        )
 
+    # Wait for background compression to finish
+    if compress_thread is not None:
+        compress_thread.join()
+
+    print_report()
+    kprint_report()
     return common_segments

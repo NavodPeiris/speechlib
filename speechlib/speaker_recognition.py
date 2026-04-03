@@ -1,9 +1,26 @@
+import logging
 import os
+import re
+from pathlib import Path
+from typing import Union
 import numpy as np
 from pyannote.audio import Model, Inference
 from scipy.spatial.distance import cosine
 import torch
 from .audio_utils import slice_and_save
+from .diarization import get_diarization_pipeline
+
+logger = logging.getLogger(__name__)
+
+SPEAKER_SIMILARITY_THRESHOLD = 0.40
+VOICES_SKIP_PREFIX = "_"
+_SPEAKER_TAG_RE = re.compile(r"^SPEAKER_\d+$")
+
+
+def is_unidentified_speaker(speaker: str) -> bool:
+    """True si el speaker no ha sido identificado: tag pyannote o literal 'unknown'."""
+    return speaker == "unknown" or bool(_SPEAKER_TAG_RE.match(speaker))
+
 
 _embedding_model = None
 _inference = None
@@ -34,69 +51,101 @@ def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
 
 
 def find_best_speaker(
-    test_embedding: np.ndarray, speaker_embeddings: dict[str, np.ndarray]
+    test_embedding: np.ndarray,
+    speaker_embeddings: dict[str, np.ndarray],
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
 ) -> str:
     best_speaker = "unknown"
     best_score = -1.0
 
+    scores = {}
     for speaker, emb in speaker_embeddings.items():
         score = cosine_similarity(test_embedding, emb)
+        scores[speaker] = score
         if score > best_score:
             best_score = score
             best_speaker = speaker
 
+    logger.debug(
+        "Speaker scores: %s  best=%.3f threshold=%.2f", scores, best_score, threshold
+    )
+
+    if best_score < threshold:
+        return "unknown"
     return best_speaker
 
 
-def speaker_recognition(file_name, voices_folder, segments, wildcards):
+def load_voice_embeddings(
+    voices_folder: Path, enhanced: bool = False
+) -> dict[str, list[np.ndarray]]:
+    """Carga embeddings por archivo para cada speaker en voices_folder.
+
+    Retorna {speaker_name: [embedding_por_archivo, ...]}
+    Omite directorios con prefijo VOICES_SKIP_PREFIX ('_').
+
+    Si enhanced=True, busca WAVs en _enhanced/ de cada speaker.
+    Fallback a raíz si _enhanced/ no existe o está vacío.
+    """
+    result: dict[str, list[np.ndarray]] = {}
+    voices_folder = Path(voices_folder)
+    for entry in sorted(voices_folder.iterdir()):
+        if not entry.is_dir() or entry.name.startswith(VOICES_SKIP_PREFIX):
+            continue
+        wav_dir = entry / "_enhanced" if enhanced else entry
+        if not wav_dir.is_dir():
+            wav_dir = entry
+        wavs = sorted(wav_dir.glob("*.wav"))
+        if enhanced and not wavs:
+            wavs = sorted(entry.glob("*.wav"))
+        embs = []
+        for wav in wavs:
+            try:
+                embs.append(get_embedding(str(wav)))
+            except Exception as e:
+                print(f"Error extracting embedding from {wav}: {e}")
+        if embs:
+            result[entry.name] = embs
+    return result
+
+
+def load_avg_voice_embeddings(
+    voices_folder: Path, enhanced: bool = False
+) -> dict[str, np.ndarray]:
+    """Carga embedding promedio por speaker en voices_folder.
+
+    Retorna {speaker_name: avg_embedding}.
+    """
+    raw = load_voice_embeddings(voices_folder, enhanced=enhanced)
+    return {name: np.mean(embs, axis=0) for name, embs in raw.items()}
+
+
+def speaker_recognition(
+    file_name,
+    voices_folder,
+    segments,
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
+    enhanced: bool = False,
+):
     inference = _get_inference()
 
-    speakers = os.listdir(voices_folder)
+    speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder), enhanced=enhanced)
 
-    speaker_embeddings = {}
-
-    for speaker in speakers:
-        speaker_path = os.path.join(voices_folder, speaker)
-        if not os.path.isdir(speaker_path):
-            continue
-
-        voice_files = os.listdir(speaker_path)
-        embeddings = []
-
-        for voice_file in voice_files:
-            voice_path = os.path.join(speaker_path, voice_file)
-            try:
-                emb = inference(voice_path)
-                embeddings.append(emb)
-            except Exception as e:
-                print(f"Error extracting embedding from {voice_path}: {e}")
-
-        if embeddings:
-            avg_emb = np.mean(embeddings, axis=0)
-            speaker_embeddings[speaker] = avg_emb
-
-    from collections import defaultdict
-
-    Id_count = defaultdict(int)
-
-    folder_name = "temp"
+    folder_name = str(Path(file_name).parent / "tmp")
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-    i = 0
-
-    limit = 60
+    limit = 60_000  # 60 segundos expresado en ms
     duration = 0
+    collected_embeddings = []
 
-    for segment in segments:
+    for i, segment in enumerate(segments, 1):
         start_ms = segment[0] * 1000
         end_ms = segment[1] * 1000
-        i = i + 1
         file = (
             folder_name
             + "/"
-            + file_name.split("/")[-1].split(".")[0]
+            + os.path.splitext(os.path.basename(file_name))[0]
             + "_segment"
             + str(i)
             + ".wav"
@@ -104,26 +153,80 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
         slice_and_save(file_name, start_ms, end_ms, file)
 
         try:
-            test_emb = inference(file)
+            emb = inference(file)
+            emb_arr = np.asarray(emb).flatten()
+            if not np.isnan(emb_arr).any():
+                collected_embeddings.append(emb_arr)
         except Exception as e:
             print(f"Error extracting embedding from segment: {e}")
-            os.remove(file)
+            try:
+                os.remove(file)
+            except OSError:
+                pass
             continue
-
-        best_speaker = find_best_speaker(test_emb, speaker_embeddings)
-
-        if best_speaker != "unknown":
-            speakerId = best_speaker.split(".")[0]
-            if speakerId not in wildcards:
-                Id_count[speakerId] += 1
 
         os.remove(file)
 
-        current_pred = max(Id_count, key=Id_count.get) if Id_count else "unknown"
-
         duration += end_ms - start_ms
-        if duration >= limit and current_pred != "unknown":
+        if duration >= limit:
             break
 
-    most_common_Id = max(Id_count, key=Id_count.get) if Id_count else "unknown"
-    return most_common_Id
+    if not collected_embeddings:
+        return "unknown"
+
+    avg_emb = np.mean(collected_embeddings, axis=0)
+    return find_best_speaker(avg_emb, speaker_embeddings, threshold)
+
+
+def detect_unknown_speakers(
+    audio_path: Union[str, Path],
+    voices_folder: Union[str, Path],
+    hf_token: str | None = None,
+    threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
+    limit_s: float = 60.0,
+) -> dict[str, list[list[float]]]:
+    """Diariza el audio y retorna segmentos de speakers no reconocidos en voices_folder.
+
+    Args:
+        audio_path: WAV procesado (enhanced/16k).
+        voices_folder: Carpeta con subdirectorios por speaker conocido.
+        hf_token: Token HuggingFace para cargar el pipeline de diarización.
+        threshold: Umbral de cosine similarity para considerar a un speaker conocido.
+        limit_s: Segundos máximos de audio a analizar por speaker (rendimiento).
+
+    Returns:
+        {speaker_tag: [[start_s, end_s], ...]} — solo speakers no reconocidos.
+        Los tags son los SPEAKER_XX asignados por pyannote.
+    """
+    pipeline = get_diarization_pipeline(hf_token)
+
+    import torchaudio
+
+    waveform, sample_rate = torchaudio.load(str(audio_path))
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+
+    annotation = (
+        diarization.speaker_diarization
+        if hasattr(diarization, "speaker_diarization")
+        else diarization
+    )
+
+    # Construir dict de segmentos por speaker_tag
+    speakers: dict[str, list[list[float]]] = {}
+    for turn, _, spk_tag in annotation.itertracks(yield_label=True):
+        start = round(turn.start, 1)
+        end = round(turn.end, 1)
+        if spk_tag not in speakers:
+            speakers[spk_tag] = []
+        speakers[spk_tag].append([start, end, spk_tag])
+
+    # Identificar cada speaker contra la voices library
+    result: dict[str, list[list[float]]] = {}
+    for spk_tag, segments in speakers.items():
+        name = speaker_recognition(
+            str(audio_path), str(voices_folder), segments, threshold
+        )
+        if name == "unknown":
+            result[spk_tag] = [[s[0], s[1]] for s in segments]
+
+    return result

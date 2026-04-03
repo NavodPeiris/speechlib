@@ -32,8 +32,6 @@ def test_speaker_recognition_uses_pyannote_embedding(tmp_path):
         from speechlib.speaker_recognition import speaker_recognition
 
         segments = [[0.0, 1.0, "SPEAKER_00"], [1.0, 2.0, "SPEAKER_00"]]
-        result = speaker_recognition(
-            str(audio_file), str(voices_dir), segments, wildcards=[]
-        )
+        result = speaker_recognition(str(audio_file), str(voices_dir), segments)
 
         mock_inference_fn.assert_called()

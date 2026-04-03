@@ -1,10 +1,90 @@
 import torch
 from .whisper_sinhala import (whisper_sinhala)
-from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 import whisper
 import os
 from transformers import pipeline
 import assemblyai as aai
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4)
+def _get_faster_whisper_model(model_size: str, device: str, compute_type: str) -> "WhisperModel":
+    return WhisperModel(model_size, device=device, compute_type=compute_type)
+
+
+def transcribe_full_aligned(file_name, segments, language, model_size, quantization):
+    """Transcribe el audio completo de una vez y mapea texto por overlap de timestamp.
+
+    En lugar de llamar a transcribe() N veces (una por segmento), esta funcion:
+    1. Llama a batched.transcribe() UNA sola vez con el audio completo
+    2. Mapea el texto resultante a cada segmento de diarizacion por overlap temporal
+
+    Args:
+        file_name: ruta al archivo de audio
+        segments: lista de [start, end, speaker] de diarizacion
+        language: codigo de idioma
+        model_size: tamano del modelo whisper
+        quantization: si usar cuantizacion
+
+    Returns:
+        lista de [start, end, text, speaker]
+    """
+    if torch.cuda.is_available():
+        compute_type = "int8_float16" if quantization else "float16"
+        model = _get_faster_whisper_model(model_size, "cuda", compute_type)
+    else:
+        compute_type = "int8" if quantization else "float32"
+        model = _get_faster_whisper_model(model_size, "cpu", compute_type)
+
+    batched = BatchedInferencePipeline(model=model)
+    whisper_segments, _ = batched.transcribe(
+        file_name, language=language, beam_size=1, batch_size=4,
+        word_timestamps=True,
+    )
+    whisper_segs = list(whisper_segments)
+
+    seg_texts = [[] for _ in segments]
+
+    for ws in whisper_segs:
+        words = getattr(ws, "words", None) or []
+        if words:
+            # Word-level assignment: each word goes to the diarization segment
+            # whose window contains the word midpoint.  Fallback to segment
+            # with maximum overlap when no segment contains the midpoint.
+            for word in words:
+                mid = (word.start + word.end) / 2
+                best_idx = -1
+                best_overlap = 0.0
+                for i, seg in enumerate(segments):
+                    if seg[0] <= mid <= seg[1]:
+                        best_idx = i
+                        break
+                    overlap = min(word.end, seg[1]) - max(word.start, seg[0])
+                    if overlap > best_overlap:
+                        best_overlap = overlap
+                        best_idx = i
+                if best_idx >= 0:
+                    seg_texts[best_idx].append(word.word.strip())
+        else:
+            # Fallback: segment-level exclusive assignment (no word timestamps)
+            best_idx = -1
+            best_overlap = 0.0
+            for i, seg in enumerate(segments):
+                overlap = min(ws.end, seg[1]) - max(ws.start, seg[0])
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_idx = i
+            if best_idx >= 0:
+                seg_texts[best_idx].append(ws.text)
+
+    result = []
+    for i, seg in enumerate(segments):
+        start_s, end_s, speaker = seg[0], seg[1], seg[2]
+        text = " ".join(seg_texts[i]).strip()
+        result.append([start_s, end_s, text, speaker])
+    return result
+
 
 def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
     res = ""
@@ -14,22 +94,24 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
     elif model_size in ["base", "tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3"]:
         if model_type == "faster-whisper":
             if torch.cuda.is_available():
-                if quantization:
-                    model = WhisperModel(model_size, device="cuda", compute_type="int8_float16")
-                else:
-                    model = WhisperModel(model_size, device="cuda", compute_type="float16")
+                compute_type = "int8_float16" if quantization else "float16"
+                model = _get_faster_whisper_model(model_size, "cuda", compute_type)
             else:
-                if quantization:
-                    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-                else:
-                    model = WhisperModel(model_size, device="cpu", compute_type="float32")
+                compute_type = "int8" if quantization else "float32"
+                model = _get_faster_whisper_model(model_size, "cpu", compute_type)
 
             if language in model.supported_languages:
-                segments, info = model.transcribe(file, language=language, beam_size=5)
+                batched = BatchedInferencePipeline(model=model)
+                segments, info = batched.transcribe(
+                    file,
+                    language=language,
+                    beam_size=5,
+                    batch_size=16,
+                )
 
                 for segment in segments:
                     res += segment.text + " "
-                    
+
                 return res
             else:
                 Exception("Language code not supported.\nThese are the supported languages:\n", model.supported_languages)
