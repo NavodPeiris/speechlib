@@ -122,7 +122,7 @@ def test_known_speaker_and_unknown_not_merged(tmp_path):
     def fake_transcribe(audio, common, lang, model, quant):
         return [[seg[0], seg[1], "texto", seg[2]] for seg in common]
 
-    def fake_speaker_recognition(file, voices, segments):
+    def fake_speaker_recognition(file, voices, segments, **kwargs):
         # SPEAKER_00 reconocido como Agustin, SPEAKER_01 no reconocido
         spk = segments[0][2] if segments else "SPEAKER_00"
         return "Agustin" if spk == "SPEAKER_00" else "unknown"

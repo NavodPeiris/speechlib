@@ -169,7 +169,8 @@ def core_analysis(
             print("running speaker recognition...")
             for spk_tag, spk_segments in speakers.items():
                 spk_name = speaker_recognition(
-                    str(state.working_path), voices_folder, spk_segments
+                    str(state.working_path), voices_folder, spk_segments,
+                    enhanced=state.is_enhanced,
                 )
                 spk = spk_name
                 identified.append(spk)

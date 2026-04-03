@@ -68,6 +68,45 @@ class TestSpeakerMapCache:
         speaker_map_path = tmp_path / ".audio" / "speaker_map.json"
         assert speaker_map_path.exists(), "speaker_map.json should be saved"
 
+    def test_core_analysis_passes_enhanced_flag_to_speaker_recognition(self, tmp_path):
+        """Cuando enhance está activo, speaker_recognition recibe enhanced=True."""
+        from speechlib.core_analysis import core_analysis
+
+        audio = _make_wav(tmp_path / "audio.wav", duration_s=10.0)
+        voices = tmp_path / "voices"
+        voices.mkdir()
+        (voices / "speaker").mkdir()
+        _make_wav(voices / "speaker" / "voice.wav")
+
+        mock_pipeline = MagicMock()
+        mock_diar = MagicMock()
+        mock_diar.speaker_diarization = _make_annotation_mock(["SPEAKER_00"])
+        mock_pipeline.return_value = mock_diar
+
+        mock_speaker_rec = MagicMock(return_value="speaker")
+
+        with patch(
+            "speechlib.core_analysis._get_diarization_pipeline",
+            return_value=mock_pipeline,
+        ):
+            with patch(
+                "speechlib.core_analysis._load_rttm", side_effect=FileNotFoundError()
+            ):
+                with patch(
+                    "speechlib.core_analysis.speaker_recognition", mock_speaker_rec
+                ):
+                    with patch("speechlib.core_analysis.enhance_audio", lambda s: s.model_copy(update={"is_enhanced": True})):
+                        core_analysis(
+                            str(audio), str(voices), str(tmp_path / "logs"), "en",
+                            skip_enhance=False,
+                        )
+
+        mock_speaker_rec.assert_called_once()
+        _, kwargs = mock_speaker_rec.call_args
+        assert kwargs.get("enhanced") is True, (
+            f"speaker_recognition should receive enhanced=True, got {mock_speaker_rec.call_args}"
+        )
+
     def test_speaker_map_cache_skips_recognition(self, tmp_path):
         """speaker_map.json exists → speaker_recognition NOT called"""
         from speechlib.core_analysis import core_analysis

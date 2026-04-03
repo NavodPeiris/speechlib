@@ -75,19 +75,30 @@ def find_best_speaker(
     return best_speaker
 
 
-def load_voice_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
+def load_voice_embeddings(
+    voices_folder: Path, enhanced: bool = False
+) -> dict[str, list[np.ndarray]]:
     """Carga embeddings por archivo para cada speaker en voices_folder.
 
     Retorna {speaker_name: [embedding_por_archivo, ...]}
     Omite directorios con prefijo VOICES_SKIP_PREFIX ('_').
+
+    Si enhanced=True, busca WAVs en _enhanced/ de cada speaker.
+    Fallback a raíz si _enhanced/ no existe o está vacío.
     """
     result: dict[str, list[np.ndarray]] = {}
     voices_folder = Path(voices_folder)
     for entry in sorted(voices_folder.iterdir()):
         if not entry.is_dir() or entry.name.startswith(VOICES_SKIP_PREFIX):
             continue
+        wav_dir = entry / "_enhanced" if enhanced else entry
+        if not wav_dir.is_dir():
+            wav_dir = entry
+        wavs = sorted(wav_dir.glob("*.wav"))
+        if enhanced and not wavs:
+            wavs = sorted(entry.glob("*.wav"))
         embs = []
-        for wav in sorted(entry.glob("*.wav")):
+        for wav in wavs:
             try:
                 embs.append(get_embedding(str(wav)))
             except Exception as e:
@@ -97,12 +108,14 @@ def load_voice_embeddings(voices_folder: Path) -> dict[str, list[np.ndarray]]:
     return result
 
 
-def load_avg_voice_embeddings(voices_folder: Path) -> dict[str, np.ndarray]:
+def load_avg_voice_embeddings(
+    voices_folder: Path, enhanced: bool = False
+) -> dict[str, np.ndarray]:
     """Carga embedding promedio por speaker en voices_folder.
 
     Retorna {speaker_name: avg_embedding}.
     """
-    raw = load_voice_embeddings(voices_folder)
+    raw = load_voice_embeddings(voices_folder, enhanced=enhanced)
     return {name: np.mean(embs, axis=0) for name, embs in raw.items()}
 
 
@@ -111,10 +124,11 @@ def speaker_recognition(
     voices_folder,
     segments,
     threshold: float = SPEAKER_SIMILARITY_THRESHOLD,
+    enhanced: bool = False,
 ):
     inference = _get_inference()
 
-    speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder))
+    speaker_embeddings = load_avg_voice_embeddings(Path(voices_folder), enhanced=enhanced)
 
     folder_name = str(Path(file_name).parent / "tmp")
 
@@ -140,7 +154,9 @@ def speaker_recognition(
 
         try:
             emb = inference(file)
-            collected_embeddings.append(np.asarray(emb).flatten())
+            emb_arr = np.asarray(emb).flatten()
+            if not np.isnan(emb_arr).any():
+                collected_embeddings.append(emb_arr)
         except Exception as e:
             print(f"Error extracting embedding from segment: {e}")
             try:

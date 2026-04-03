@@ -136,3 +136,72 @@ class TestSpeakerRecognitionAggregation:
                 result = speaker_recognition(str(audio), str(voices), segments)
 
         assert result == "unknown"
+
+    def test_nan_embeddings_are_discarded(self, tmp_path):
+        """Embeddings NaN de segmentos cortos no contaminan el promedio."""
+        from speechlib.speaker_recognition import speaker_recognition
+
+        audio = _make_wav(tmp_path / "audio.wav", duration_s=30.0)
+        voices = tmp_path / "voices"
+        (voices / "speaker_a").mkdir(parents=True)
+        _make_wav(voices / "speaker_a" / "voice.wav")
+
+        # 3 segmentos normales + 1 que produce NaN
+        segments = [[float(i), float(i + 4), "SPEAKER_XX"] for i in range(4)]
+
+        NAN_EMB = np.array([float("nan")] * 3)
+        call_index = [0]
+
+        def mock_inference(path):
+            idx = call_index[0]
+            call_index[0] += 1
+            if "speaker_a" in str(path):
+                return SPEAKER_A_EMB
+            # Tercer segmento produce NaN
+            return NAN_EMB if idx == 2 else MATCHING_EMB
+
+        with patch("speechlib.speaker_recognition._get_inference") as mock_get_inf:
+            mock_get_inf.return_value.side_effect = mock_inference
+            with patch("speechlib.speaker_recognition.get_embedding") as mock_ge:
+                mock_ge.side_effect = lambda p: (
+                    SPEAKER_A_EMB if "speaker_a" in p else None
+                )
+                result = speaker_recognition(str(audio), str(voices), segments)
+
+        assert result == "speaker_a", (
+            f"NaN embeddings should be discarded, expected 'speaker_a' but got '{result}'"
+        )
+
+    def test_enhanced_flag_loads_enhanced_embeddings(self, tmp_path):
+        """enhanced=True hace que speaker_recognition compare contra _enhanced/ embeddings."""
+        from speechlib.speaker_recognition import speaker_recognition
+
+        audio = _make_wav(tmp_path / "audio.wav", duration_s=30.0)
+        voices = tmp_path / "voices"
+        speaker_dir = voices / "speaker_a"
+        speaker_dir.mkdir(parents=True)
+        _make_wav(speaker_dir / "voice.wav")
+        enh_dir = speaker_dir / "_enhanced"
+        enh_dir.mkdir()
+        _make_wav(enh_dir / "voice.wav")
+
+        ENHANCED_EMB = np.array([0.5, 0.5, 0.0])
+        RAW_EMB = np.array([0.0, 0.0, 1.0])
+        ENH_REF_EMB = np.array([0.5, 0.5, 0.0])
+
+        segments = [[0.0, 4.0, "SPEAKER_XX"]]
+
+        def mock_inference(path):
+            return ENHANCED_EMB
+
+        with patch("speechlib.speaker_recognition._get_inference") as mock_get_inf:
+            mock_get_inf.return_value.side_effect = mock_inference
+            with patch("speechlib.speaker_recognition.get_embedding") as mock_ge:
+                mock_ge.side_effect = lambda p: (
+                    ENH_REF_EMB if "_enhanced" in p else RAW_EMB
+                )
+                result = speaker_recognition(
+                    str(audio), str(voices), segments, enhanced=True
+                )
+
+        assert result == "speaker_a"
