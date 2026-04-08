@@ -12,8 +12,12 @@ Estilo GOOS-sin-mocks: value objects inmutables, sin I/O, sin dependencias
 externas. Toda la logica es funcional pura y testeable sin mocks.
 """
 
+import json
 from dataclasses import dataclass, field, replace
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
+
+SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -89,3 +93,66 @@ class Transcript:
         self, segments: tuple[TranscriptSegment, ...]
     ) -> "Transcript":
         return replace(self, segments=tuple(segments))
+
+    # ── Persistencia ─────────────────────────────────────────────────────────
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "audio_path": self.audio_path,
+            "language": self.language,
+            "segments": [
+                {
+                    "start_ms": seg.start_ms,
+                    "end_ms": seg.end_ms,
+                    "text": seg.text,
+                    "speaker": {
+                        "diarization_tag": seg.speaker.diarization_tag,
+                        "recognized_name": seg.speaker.recognized_name,
+                        "similarity": seg.speaker.similarity,
+                    },
+                }
+                for seg in self.segments
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Transcript":
+        version = data.get("schema_version")
+        if version != SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported transcript schema version: {version} "
+                f"(expected {SCHEMA_VERSION})"
+            )
+        segments = tuple(
+            TranscriptSegment(
+                start_ms=seg["start_ms"],
+                end_ms=seg["end_ms"],
+                text=seg["text"],
+                speaker=SpeakerIdentity(
+                    diarization_tag=seg["speaker"]["diarization_tag"],
+                    recognized_name=seg["speaker"]["recognized_name"],
+                    similarity=seg["speaker"]["similarity"],
+                ),
+            )
+            for seg in data["segments"]
+        )
+        return cls(
+            segments=segments,
+            audio_path=data["audio_path"],
+            language=data["language"],
+        )
+
+    def save(self, path: Path | str) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load(cls, path: Path | str) -> "Transcript":
+        path = Path(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return cls.from_dict(data)
