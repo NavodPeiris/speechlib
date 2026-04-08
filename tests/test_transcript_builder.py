@@ -75,6 +75,30 @@ def test_int_ms_conversion():
     assert t.segments[0].end_ms == 5678
 
 
+def test_legacy_label_starting_with_speaker_used_as_tag_directly():
+    """Si el legacy label ya es un SPEAKER_XX (no identificado por core_analysis),
+    el builder debe usarlo TAL CUAL como diarization_tag, ignorando el overlap.
+
+    Razon: tras absorb_micro_segments + merge_short_turns, los segmentos
+    pueden cubrir multiples turnos pyannote y el overlap puede devolver el
+    tag mas grande aunque el legacy ya tenga la respuesta correcta. Para
+    no identificados, el legacy es la fuente de verdad."""
+    from speechlib.services.transcript_builder import build_transcript_from_legacy_segments
+
+    legacy = [[10.0, 50.0, "x", "SPEAKER_01"]]
+    annotation = [
+        (0.0, 100.0, "SPEAKER_00"),  # cubre TODO el rango → max overlap
+        (10.0, 12.0, "SPEAKER_01"),  # turno corto del speaker correcto
+    ]
+    speaker_map = {"SPEAKER_00": "Carlos", "SPEAKER_01": "SPEAKER_01"}
+
+    t = build_transcript_from_legacy_segments(legacy, annotation, speaker_map, "x.wav", "es")
+    spk = t.segments[0].speaker
+    assert spk.diarization_tag == "SPEAKER_01"  # ← preserva el legacy label
+    assert spk.recognized_name is None
+    assert spk.label == "SPEAKER_01"
+
+
 def test_returns_immutable_transcript():
     from speechlib.services.transcript_builder import build_transcript_from_legacy_segments
     from speechlib.domain.transcript import Transcript

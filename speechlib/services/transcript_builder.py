@@ -91,7 +91,16 @@ def build_transcript_from_legacy_segments(
     new_segments = []
     for legacy in legacy_segments:
         start_s, end_s, text, label = legacy[0], legacy[1], legacy[2], legacy[3]
-        diarization_tag = _find_best_overlap_tag(annotation_turns, start_s, end_s)
+        # Para no identificados, el legacy label YA es el SPEAKER_XX correcto:
+        # core_analysis hace speaker_map[tag]=tag cuando el reconocimiento falla.
+        # Tras absorb_micro_segments + merge_short_turns un segmento puede cubrir
+        # multiples turnos pyannote, asi que el overlap puede devolver el tag
+        # mas grande en lugar del verdadero. Saltamos el overlap y confiamos
+        # en la fuente de verdad legacy.
+        if label.startswith("SPEAKER_"):
+            diarization_tag = label
+        else:
+            diarization_tag = _find_best_overlap_tag(annotation_turns, start_s, end_s)
         identity = _build_identity(label, diarization_tag, speaker_map)
         new_segments.append(
             TranscriptSegment(
