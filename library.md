@@ -231,3 +231,25 @@ metrics for faster-whisper "large" model:
         speaker recognition time: 10s
         transcription time: 343s
 ```
+
+### Citation
+
+If you use Speechlib in your research or project, please cite it as:
+
+```bibtex
+@software{speechlib,
+  author       = {NavodPeiris},
+  title        = {Speechlib: Speaker Diarization, Recognition, and Transcription in a Single Pipeline},
+  year         = {2024},
+  publisher    = {GitHub},
+  url          = {https://github.com/NavodPeiris/speechlib}
+}
+```
+
+### Sponsorship
+
+If you find Speechlib useful, please consider supporting its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/NavodPeiris)
+
+Your support helps maintain and improve the library. Thank you!
