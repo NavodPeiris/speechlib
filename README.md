@@ -20,6 +20,8 @@ Recall.ai diarizes by pulling the speaker data and separate audio streams from t
     
 </p>
 
+Speechlib is a library that unifies speaker diarization, transcription and speaker recognition in a single pipeline to create transcripts for audio conversations with actual speaker names and time tags. This library also contain audio preprocessor functions.
+
 ### Run your IDE as administrator
 
 you will get following error if administrator permission is not there:
