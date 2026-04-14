@@ -6,16 +6,16 @@ Recall.ai diarizes by pulling the speaker data and separate audio streams from t
 # Speechlib
 
 <p align="center">
-  <img src="speechlib.png" />
+  <img src="speechlib.png" width="500px" />
 </p>
 
 <p align="center">
-    <a href="./LICENSE"><img src="https://img.shields.io/github/license/Navodplayer1/speechlib"></a>
-    <a href="https://github.com/Navodplayer1/speechlib/releases"><img src="https://img.shields.io/github/v/release/Navodplayer1/speechlib?color=ffa"></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/github/license/NavodPeiris/speechlib"></a>
+    <a href="https://github.com/NavodPeiris/speechlib/releases"><img src="https://img.shields.io/github/v/release/NavodPeiris/speechlib?color=ffa"></a>
     <a href="support os"><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
     <a href=""><img src="https://img.shields.io/badge/python-3.8+-aff.svg"></a>
-    <a href="https://github.com/Navodplayer1/speechlib/issues"><img src="https://img.shields.io/github/issues/Navodplayer1/speechlib?color=9cc"></a>
-    <a href="https://github.com/Navodplayer1/speechlib/stargazers"><img src="https://img.shields.io/github/stars/Navodplayer1/speechlib?color=ccf"></a>
+    <a href="https://github.com/NavodPeiris/speechlib/issues"><img src="https://img.shields.io/github/issues/NavodPeiris/speechlib?color=9cc"></a>
+    <a href="https://github.com/NavodPeiris/speechlib/stargazers"><img src="https://img.shields.io/github/stars/NavodPeiris/speechlib?color=ccf"></a>
     <a href="https://pypi.org/project/speechlib/"><img src="https://static.pepy.tech/badge/speechlib"></a>
     
 </p>
@@ -238,3 +238,25 @@ metrics for faster-whisper "large" model:
         speaker recognition time: 10s
         transcription time: 343s
 ```
+
+### Citation
+
+If you use Speechlib in your research or project, please cite it as:
+
+```bibtex
+@software{speechlib,
+  author       = {NavodPeiris},
+  title        = {Speechlib: Speaker Diarization, Recognition, and Transcription in a Single Pipeline},
+  year         = {2024},
+  publisher    = {GitHub},
+  url          = {https://github.com/NavodPeiris/speechlib}
+}
+```
+
+### Sponsorship
+
+If you find Speechlib useful, please consider supporting its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/NavodPeiris)
+
+Your support helps maintain and improve the library. Thank you!

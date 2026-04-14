@@ -1,7 +1,7 @@
 [project]
 name = "speechlib"
 version = "1.1.17"
-description = "speechlib is a library that can do speaker diarization, transcription and speaker recognition on an audio file to create transcripts with actual speaker names. This library also contain audio preprocessor functions."
+description = "speechlib is a library that unifies speaker diarization, transcription and speaker recognition in a single pipeline to create transcripts for audio conversations with actual speaker names and time tags. This library also contain audio preprocessor functions."
 readme = "library.md"
 requires-python = ">=3.10"
 authors = [

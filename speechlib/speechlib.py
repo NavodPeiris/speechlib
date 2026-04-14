@@ -25,7 +25,7 @@ class Transcriptor:
 
         quantization: whether to use int8 quantization or not (default=False)
 
-        see documentation: https://github.com/Navodplayer1/speechlib
+        see documentation: https://github.com/NavodPeiris/speechlib
         
             
         supported languages:  
