@@ -4,18 +4,26 @@ from pydub import AudioSegment
 from collections import defaultdict
 import torch
 
-if torch.cuda.is_available():
-    verification = SpeakerRecognition.from_hparams(run_opts={"device":"cuda"}, source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
-else:
-    verification = SpeakerRecognition.from_hparams(run_opts={"device":"cpu"}, source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb")
+_verification = None
+
+def _get_verification_model():
+    global _verification
+    if _verification is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _verification = SpeakerRecognition.from_hparams(
+            run_opts={"device": device},
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir="pretrained_models/spkrec-ecapa-voxceleb"
+        )
+    return _verification
 
 # recognize speaker name
 def speaker_recognition(file_name, voices_folder, segments, wildcards):
 
+    verification = _get_verification_model()
     speakers = os.listdir(voices_folder)
 
     Id_count = defaultdict(int)
-    # Load the WAV file
     audio = AudioSegment.from_file(file_name, format="wav")
 
     folder_name = "temp"
@@ -24,21 +32,22 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
         os.makedirs(folder_name)
 
     i = 0
-    
+
     '''
     iterate over segments and check speaker for increased accuracy.
     assign speaker name to arbitrary speaker tag 'SPEAKER_XX'
     '''
 
-    limit = 60
+    limit = 60 * 1000  # 60 seconds in milliseconds
     duration = 0
 
     for segment in segments:
-        start = segment[0] * 1000   # start time in miliseconds
-        end = segment[1] * 1000     # end time in miliseconds
+        start = segment[0] * 1000   # start time in milliseconds
+        end = segment[1] * 1000     # end time in milliseconds
         clip = audio[start:end]
         i = i + 1
-        file = folder_name + "/" + file_name.split("/")[-1].split(".")[0] + "_segment"+ str(i) + ".wav"
+        base_name = os.path.splitext(os.path.basename(file_name))[0]
+        file = folder_name + "/" + base_name + "_segment" + str(i) + ".wav"
         clip.export(file, format="wav")
 
         max_score = 0
@@ -60,7 +69,7 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
                     if prediction == True:
                         if score >= max_score:
                             max_score = score
-                            speakerId = speaker.split(".")[0]  
+                            speakerId = speaker.split(".")[0]
                             if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
                                 person = speakerId
                 except Exception as err:
@@ -76,7 +85,6 @@ def speaker_recognition(file_name, voices_folder, segments, wildcards):
         duration += (end - start)
         if duration >= limit and current_pred != "unknown":
             break
-    
+
     most_common_Id = max(Id_count, key=Id_count.get)
     return most_common_Id
-

@@ -8,4 +8,4 @@ for publishing:
 
 for install locally for testing:
 
-- uv pip install dist/speechlib-1.1.16-py3-none-any.whl
+- uv pip install dist/speechlib-1.1.17-py3-none-any.whl

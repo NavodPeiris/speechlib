@@ -33,6 +33,8 @@ You can see this example [notebook](https://colab.research.google.com/drive/1lpo
 
 ```
 pip install speechlib
+or
+uv add speechlib
 ```
 
 ### Dependencies:

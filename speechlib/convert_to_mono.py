@@ -10,19 +10,16 @@ def convert_to_mono(input_wav):
         # Check if the file is stereo
         if params.nchannels > 1:
             # Read the audio data
-            frames = input_file.readframes(-1)
+            frames = input_file.readframes(params.nframes)
             audio_data = np.frombuffer(frames, dtype=np.int16)
 
             # Take the average of the channels to convert to mono
-            mono_audio_data = np.mean(audio_data.reshape(-1, params.nchannels), axis=1)
+            mono_audio_data = np.mean(audio_data.reshape(-1, params.nchannels), axis=1).astype(np.int16)
 
-            # Create a new WAV file for mono audio
+            # Write mono audio data back to the same file
             with wave.open(input_wav, 'wb') as output_file:
-                # Set the parameters for the output file
                 output_file.setparams((1, params.sampwidth, params.framerate, len(mono_audio_data), params.comptype, params.compname))
-
-                # Write the mono audio data to the output file
-                output_file.writeframes(np.int16(mono_audio_data))
+                output_file.writeframes(mono_audio_data.tobytes())
 
             print(f'{input_wav} converted to mono')
         else:

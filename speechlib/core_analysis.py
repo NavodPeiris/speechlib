@@ -46,7 +46,7 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
 
     start_time = int(time.time())
     print("running diarization...")
-    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=0, max_speakers=10)
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=1, max_speakers=10)
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
     print(f"diarization done. Time taken: {elapsed_time} seconds.")
