@@ -1,3 +1,4 @@
+import os
 from .core_analysis import (core_analysis)
 from .re_encode import (re_encode)
 from .convert_to_mono import (convert_to_mono)
@@ -5,25 +6,29 @@ from .convert_to_wav import (convert_to_wav)
 
 class Transcriptor:
 
-    def __init__(self, file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder=None, quantization=False):
+    def __init__(self, file, log_folder="logs", language=None, modelSize="tiny", ACCESS_TOKEN=None, voices_folder=None, quantization=False, output_format="both", **kwargs):
         '''
-        transcribe a wav file 
+        transcribe a wav file or a list of wav files
         
         arguments:
 
-        file: name of wav file with extension ex: file.wav
+        file: name of wav file with extension ex: file.wav, or a list of such files
 
         log_folder: name of folder where transcript will be stored
 
-        language: language of wav file
+        language: language of wav file (default=None for auto-detect)
 
-        modelSize: tiny, small, medium, large, large-v1, large-v2, large-v3 (bigger model is more accurate but slow!!)
+        modelSize: tiny, small, medium, large, large-v1, large-v2, large-v3, turbo (bigger model is more accurate but slow!!)
 
-        ACCESS_TOKEN: huggingface access token
+        ACCESS_TOKEN: huggingface access token (defaults to HUGGINGFACE_ACCESS_TOKEN from env)
 
         voices_folder: folder containing subfolders named after each speaker with speaker voice samples in them. This will be used for speaker recognition
 
         quantization: whether to use int8 quantization or not (default=False)
+        
+        output_format: "txt", "json", or "both" (default="both")
+
+        kwargs: any additional parameters (like beam_size, min_speakers, max_speakers, etc.)
 
         see documentation: https://github.com/NavodPeiris/speechlib
         
@@ -230,33 +235,51 @@ class Transcriptor:
         #### Cantonese
         "yue",
         '''
-        self.file = file
+        self.file = file if isinstance(file, list) else [file]
         self.voices_folder = voices_folder
         self.language = language
         self.log_folder = log_folder
         self.modelSize = modelSize
         self.quantization = quantization
-        self.ACCESS_TOKEN = ACCESS_TOKEN
+        self.output_format = output_format
+        self.ACCESS_TOKEN = ACCESS_TOKEN or os.environ.get("HUGGINGFACE_ACCESS_TOKEN") or os.environ.get("HF_TOKEN")
+        self.kwargs = kwargs
+
+    def _process_batch(self, model_type, custom_model_path=None, hf_model_id=None, aai_api_key=None):
+        results = []
+        total_files = len(self.file)
+        for idx, f in enumerate(self.file, 1):
+            if total_files > 1:
+                print(f"\n[File {idx}/{total_files}] Starting processing for {f} ...")
+            else:
+                print(f"\nStarting processing for {f} ...")
+            try:
+                res = core_analysis(f, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, model_type, self.quantization, custom_model_path, hf_model_id, aai_api_key, self.output_format, **self.kwargs)
+                results.append(res)
+            except Exception as e:
+                if total_files > 1:
+                    print(f"[File {idx}/{total_files}] ERROR processing {f}: {e}")
+                else:
+                    print(f"ERROR processing {f}: {e}")
+        # If single file, return the single result for backwards compatibility
+        if len(self.file) == 1 and len(results) == 1:
+            return results[0]
+        return results
 
     def whisper(self):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "whisper", self.quantization)
-        return res
+        return self._process_batch("whisper")
     
     def faster_whisper(self):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "faster-whisper", self.quantization)
-        return res
+        return self._process_batch("faster-whisper")
 
     def custom_whisper(self, custom_model_path):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "custom", self.quantization, custom_model_path)
-        return res
+        return self._process_batch("custom", custom_model_path=custom_model_path)
     
     def huggingface_model(self, hf_model_id):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "huggingface", self.quantization, None, hf_model_id)
-        return res
+        return self._process_batch("huggingface", hf_model_id=hf_model_id)
     
     def assemby_ai_model(self, aai_api_key):
-        res = core_analysis(self.file, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, "assemblyAI", self.quantization, None, None, aai_api_key)
-        return res
+        return self._process_batch("assemblyAI", aai_api_key=aai_api_key)
 
 class PreProcessor:
     '''
