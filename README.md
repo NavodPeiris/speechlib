@@ -91,65 +91,98 @@ This library contains following audio preprocessing functions:
 
 3. re-encode the wav file to have 16-bit PCM encoding
 
-Transcriptor method takes 7 arguments.
+`Transcriptor` initialization takes several arguments:
 
-1. file to transcribe
+1. `file`: name of the wav file (e.g. `"file.wav"`) or a **list of files** (e.g. `["file1.wav", "file2.wav"]`) for highly efficient batch processing.
+2. `log_folder`: folder where transcripts will be stored (default: `"logs"`).
+3. `language`: language code used for transcribing. Set to `None` to enable **Auto-Detection** across supported backends.
+4. `modelSize`: size of model (`"tiny"`, `"small"`, `"medium"`, `"large"`, `"large-v1"`, `"large-v2"`, `"large-v3"`, `"turbo"`, `"large-v3-turbo"`).
+5. `ACCESS_TOKEN`: HuggingFace access token. If omitted, it automatically reads from `os.environ["HUGGINGFACE_ACCESS_TOKEN"]`.
+   - Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation` is required.
+   - Token requires permission for 'Read access to contents of all public gated repos you can access'.
+6. `voices_folder`: folder containing subfolders named after each speaker with voice samples. If not provided, speaker tags will be arbitrary `SPEAKER_XX`.
+7. `quantization`: whether to use int8 quantization (speeds up faster-whisper but may lower accuracy).
+8. `output_format`: The format for the transcript files: `"txt"`, `"json"`, or `"both"` (default).
+9. `**kwargs`: Pass any additional parameters to deeply customize Pyannote Diarization (e.g., `min_speakers`, `max_speakers`) and Whisper transcribers (e.g., `beam_size`, `temperature`, `patience`, `condition_on_previous_text`).
 
-2. log_folder to store transcription
+For batch processing, the Pyannote diarization pipeline is **cached in memory**, meaning it only loads once, significantly speeding up consecutive files. Both standard `.txt` and rich `.json` (containing exact timestamps, detected language, and model used) transcripts are saved to the `log_folder`.
 
-3. language used for transcribing (language code is used)
-
-4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
-
-5. ACCESS_TOKEN: huggingface acccess token
-   1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
-   2. Token requires permission for 'Read access to contents of all public gated repos you can access'
-
-6. voices_folder (contains speaker voice samples for speaker recognition)
-
-7. quantization: this determine whether to use int8 quantization or not. Quantization may speed up the process but lower the accuracy.
-
-voices_folder should contain subfolders named with speaker names. Each subfolder belongs to a speaker and it can contain many voice samples. This will be used for speaker recognition to identify the speaker.
-
-if voices_folder is not provided then speaker tags will be arbitrary.
-
-log_folder is to store the final transcript as a text file.
-
-transcript will also indicate the timeframe in seconds where each speaker speaks.
+For an in-depth guide on the new advanced features (like strict backend validation and deep kwarg routing), please check out [ADVANCED_USAGE.md](./ADVANCED_USAGE.md).
 
 ### Transcription example:
 
-```
+```python
 import os
 from speechlib import Transcriptor
 
-file = "obama_zach.wav"  # your audio file
-voices_folder = "" # voices folder containing voice samples for recognition
-language = "en"          # language code
-log_folder = "logs"      # log folder for storing transcripts
-modelSize = "tiny"     # size of model to be used [tiny, small, medium, large-v1, large-v2, large-v3]
-quantization = False   # setting this 'True' may speed up the process but lower the accuracy
-ACCESS_TOKEN = "huggingface api key" # get permission to access pyannote/speaker-diarization@2.1 on huggingface
+# Make sure you set your HuggingFace token in the environment!
+# os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "your_huggingface_token"
 
-# quantization only works on faster-whisper
-transcriptor = Transcriptor(file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder, quantization)
+# ==========================================
+# Example 1: Basic Single File & Auto-Detect
+# ==========================================
+print("--- Example 1: Basic Usage ---")
+basic_transcriptor = Transcriptor(
+    file="obama_zach.wav", 
+    log_folder="logs_basic", 
+    language=None,             # None automatically triggers language detection
+    modelSize="turbo",         # 'turbo' models are fully supported!
+    # ACCESS_TOKEN=None,       # If omitted, reads from os.environ["HUGGINGFACE_ACCESS_TOKEN"]
+    output_format="both",      # Choose between "txt", "json", or "both"
+)
 
-# use normal whisper
-res = transcriptor.whisper()
+# Use normal whisper
+res1 = basic_transcriptor.whisper()
 
-# use faster-whisper (simply faster)
-res = transcriptor.faster_whisper()
 
-# use a custom trained whisper model
-res = transcriptor.custom_whisper("D:/whisper_tiny_model/tiny.pt")
+# ==========================================
+# Example 2: Batch Processing & Customization
+# ==========================================
+print("\n--- Example 2: Batch Processing & Advanced Customization ---")
+files_to_process = ["obama_zach.wav", "another_audio.wav"]
+voices_folder = "" # Folder containing subfolders named after each speaker with voice samples
 
-# use a huggingface whisper model
-res = transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
+# You can pass ANY **kwargs to deeply customize Pyannote and Whisper parameters!
+advanced_transcriptor = Transcriptor(
+    file=files_to_process,     # Pass a list of files! Pyannote pipeline is automatically cached!
+    log_folder="logs_batch", 
+    language="en", 
+    modelSize="large-v3-turbo", 
+    quantization=True,         # Speeds up faster-whisper via int8 quantization
+    output_format="json",      # Output ONLY the rich JSON log
+    
+    # --- Diarization Kwargs ---
+    min_speakers=1,
+    max_speakers=5,
+    
+    # --- Whisper / Faster-Whisper Kwargs ---
+    beam_size=10,
+    temperature=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+    patience=1.0,
+    condition_on_previous_text=False
+)
 
-# use assembly ai model
-res = transcriptor.assemby_ai_model("assemblyAI api key")
+# Uncomment the backend you want to use:
 
-res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
+# 1. Use normal whisper
+# res = advanced_transcriptor.whisper()
+
+# 2. Use faster-whisper (simply faster)
+res2 = advanced_transcriptor.faster_whisper()
+
+# 3. Use a custom trained whisper model
+# res3 = advanced_transcriptor.custom_whisper("D:/whisper_tiny_model/tiny.pt")
+
+# 4. Use a huggingface whisper model
+# res4 = advanced_transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
+
+# 5. Use assembly ai model
+# res5 = advanced_transcriptor.assemby_ai_model("assemblyAI api key")
+
+# res --> [
+#   {"start_time": ..., "end_time": ..., "text": ..., "speaker": ..., "file_name": ...}, 
+#   ...
+# ]
 ```
 
 #### if you don't want speaker names: keep voices_folder as an empty string ""

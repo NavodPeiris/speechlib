@@ -1,7 +1,7 @@
 import wave
 import numpy as np
 
-def convert_to_mono(input_wav):
+def convert_to_mono(input_wav, verbose=False):
     # Open the input WAV file
     with wave.open(input_wav, 'rb') as input_file:
         # Get the parameters of the input file
@@ -21,8 +21,10 @@ def convert_to_mono(input_wav):
                 output_file.setparams((1, params.sampwidth, params.framerate, len(mono_audio_data), params.comptype, params.compname))
                 output_file.writeframes(mono_audio_data.tobytes())
 
-            print(f'{input_wav} converted to mono')
+            if verbose:
+                print(f'{input_wav} converted to mono')
         else:
-            print(f'{input_wav} is already a mono audio file.')
+            if verbose:
+                print(f'{input_wav} is already a mono audio file.')
 
 

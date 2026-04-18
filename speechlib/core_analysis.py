@@ -11,45 +11,62 @@ from .re_encode import (re_encode)
 from .convert_to_mono import (convert_to_mono)
 from .convert_to_wav import (convert_to_wav)
 
+# Cache Pyannote pipeline to avoid reloading
+_pipeline_cache = {}
+
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, model_type, quantization=False, custom_model_path=None, hf_model_id=None, aai_api_key=None):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, model_type, quantization=False, custom_model_path=None, hf_model_id=None, aai_api_key=None, output_format="both", verbose=False, **kwargs):
 
     # <-------------------PreProcessing file-------------------------->
 
+    if verbose:
+        print(f"Preprocessing {file_name}: Converting to WAV...")
     # check if file is in wav format, if not convert to wav
-    file_name = convert_to_wav(file_name)
+    file_name = convert_to_wav(file_name, verbose=verbose)
 
+    if verbose:
+        print(f"Preprocessing {file_name}: Converting to Mono...")
     # convert file to mono
-    convert_to_mono(file_name)
+    convert_to_mono(file_name, verbose=verbose)
 
+    if verbose:
+        print(f"Preprocessing {file_name}: Re-encoding to 16-bit PCM...")
     # re-encode file to 16-bit PCM encoding
-    re_encode(file_name)
+    re_encode(file_name, verbose=verbose)
 
     # <--------------------running analysis--------------------------->
 
     speaker_tags = []
     
-    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1",
-                                    use_auth_token=ACCESS_TOKEN)
+    global _pipeline_cache
+    if ACCESS_TOKEN not in _pipeline_cache:
+        print("Loading pyannote diarization pipeline...")
+        pipe = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1", use_auth_token=ACCESS_TOKEN)
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-        os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
-    else:
-        device = torch.device("cpu")
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+            os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+        else:
+            device = torch.device("cpu")
 
-    pipeline.to(device)
+        pipe.to(device)
+        _pipeline_cache[ACCESS_TOKEN] = pipe
+        
+    pipeline = _pipeline_cache[ACCESS_TOKEN]
     waveform, sample_rate = torchaudio.load(file_name)
 
     start_time = int(time.time())
     print("running diarization...")
-    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=1, max_speakers=10)
+    min_speakers = kwargs.get("min_speakers", 1)
+    max_speakers = kwargs.get("max_speakers", 10)
+    diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=min_speakers, max_speakers=max_speakers)
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
-    print(f"diarization done. Time taken: {elapsed_time} seconds.")
+    if verbose:
+        print(f"diarization done. Time taken: {elapsed_time} seconds.")
 
     speakers = {}
 
@@ -84,7 +101,8 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
             speaker_map[spk_tag] = spk
         end_time = int(time.time())
         elapsed_time = int(end_time - start_time)
-        print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
+        if verbose:
+            print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
 
     keys_to_remove = []
     merged = []
@@ -114,11 +132,12 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
     print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key, verbose=verbose, **kwargs)
         speakers[spk_tag] = segment_out
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
-    print(f"transcription done. Time taken: {elapsed_time} seconds.")
+    if verbose:
+        print(f"transcription done. Time taken: {elapsed_time} seconds.")
 
     common_segments = []
 
@@ -131,9 +150,17 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
             if speaker == speaker_map[spk_tag]:
                 for segment in spk_segments:
                     if start == segment[0] and end == segment[1]:
-                        common_segments.append([start, end, segment[2], speaker])
+                        common_segments.append({
+                            "file_name": file_name,
+                            "start_time": start,
+                            "end_time": end,
+                            "text": segment[2],
+                            "speaker": speaker,
+                            "model_used": modelSize if model_type in ["whisper", "faster-whisper"] else model_type,
+                            "language_detected": language if language else "auto"
+                        })
 
     # writing log file
-    write_log_file(common_segments, log_folder, file_name, language)  
+    write_log_file(common_segments, log_folder, file_name, language, output_format)  
 
     return common_segments

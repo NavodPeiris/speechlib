@@ -35,34 +35,40 @@ def _get_custom_whisper_model(custom_model_path):
         _model_cache[key] = whisper.load_model(custom_model_path, download_root=model_folder, device=device)
     return _model_cache[key]
 
-def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key):
+def transcribe(file, language, model_size, model_type, quantization, custom_model_path, hf_model_path, aai_api_key, **kwargs):
     res = ""
     if language in ["si", "Si"]:
         res = whisper_sinhala(file)
         return res
-    elif model_size in ["base", "tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3"]:
+    elif model_size in ["base", "tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3", "turbo", "large-v3-turbo"]:
         if model_type == "faster-whisper":
             model = _get_faster_whisper_model(model_size, quantization)
-            if language in model.supported_languages:
-                segments, _ = model.transcribe(file, language=language, beam_size=5)
+            if language is None or language in model.supported_languages:
+                # filter kwargs for faster-whisper
+                fw_kwargs = {k: v for k, v in kwargs.items() if k not in ['min_speakers', 'max_speakers']}
+                if 'beam_size' not in fw_kwargs:
+                    fw_kwargs['beam_size'] = 5
+                segments, _ = model.transcribe(file, language=language, **fw_kwargs)
                 for segment in segments:
                     res += segment.text + " "
                 return res
             else:
-                raise Exception("Language code not supported.\nThese are the supported languages:\n" + str(model.supported_languages))
+                raise ValueError("Language code not supported.\nThese are the supported languages:\n" + str(model.supported_languages))
         elif model_type == "whisper":
             try:
                 model = _get_whisper_model(model_size)
                 fp16 = torch.cuda.is_available()
-                result = model.transcribe(file, language=language, fp16=fp16)
+                w_kwargs = {k: v for k, v in kwargs.items() if k not in ['min_speakers', 'max_speakers']}
+                result = model.transcribe(file, language=language, fp16=fp16, **w_kwargs)
                 return result["text"]
             except Exception as err:
-                print("an error occured while transcribing: ", err)
+                raise Exception(f"an error occured while transcribing: {err}")
         elif model_type == "custom":
             try:
                 model = _get_custom_whisper_model(custom_model_path)
                 fp16 = torch.cuda.is_available()
-                result = model.transcribe(file, language=language, fp16=fp16)
+                c_kwargs = {k: v for k, v in kwargs.items() if k not in ['min_speakers', 'max_speakers']}
+                result = model.transcribe(file, language=language, fp16=fp16, **c_kwargs)
                 return result["text"]
             except Exception as err:
                 raise Exception(f"an error occured while transcribing: {err}")
@@ -73,21 +79,28 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
                 if key not in _model_cache:
                     _model_cache[key] = pipeline("automatic-speech-recognition", model=hf_model_path, device=device)
                 pipe = _model_cache[key]
-                result = pipe(file)
+                hf_kwargs = {k: v for k, v in kwargs.items() if k not in ['min_speakers', 'max_speakers']}
+                result = pipe(file, generate_kwargs=hf_kwargs) if hf_kwargs else pipe(file)
                 return result['text']
             except Exception as err:
                 raise Exception(f"an error occured while transcribing: {err}")
         elif model_type == "assemblyAI":
             try:
                 aai.settings.api_key = aai_api_key
-                config = aai.TranscriptionConfig(
-                    speech_model=aai.SpeechModel.nano,
-                    language_code=language
-                )
+                config_kwargs = {"speech_model": aai.SpeechModel.nano}
+                if language:
+                    config_kwargs["language_code"] = language
+                else:
+                    config_kwargs["language_detection"] = True
+                
+                aai_kwargs = {k: v for k, v in kwargs.items() if k not in ['min_speakers', 'max_speakers']}
+                if aai_kwargs:
+                    raise ValueError(f"AssemblyAI does not support these kwargs natively: {list(aai_kwargs.keys())}")
+                
+                config = aai.TranscriptionConfig(**config_kwargs)
                 transcriber = aai.Transcriber(config=config)
                 transcript = transcriber.transcribe(file)
                 if transcript.status == aai.TranscriptStatus.error:
-                    print(transcript.error)
                     raise Exception(f"an error occured while transcribing: {transcript.error}")
                 else:
                     return transcript.text
@@ -96,4 +109,4 @@ def transcribe(file, language, model_size, model_type, quantization, custom_mode
         else:
             raise Exception(f"model_type {model_type} is not supported")
     else:
-        raise Exception("only 'base', 'tiny', 'small', 'medium', 'large', 'large-v1', 'large-v2', 'large-v3' models are available.")
+        raise Exception("only 'base', 'tiny', 'small', 'medium', 'large', 'large-v1', 'large-v2', 'large-v3', 'turbo', 'large-v3-turbo' models are available.")

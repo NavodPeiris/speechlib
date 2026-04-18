@@ -1,14 +1,15 @@
 import wave
 import numpy as np
 
-def re_encode(file_name):
+def re_encode(file_name, verbose=False):
 
     with wave.open(file_name, 'rb') as original_file:
 
         params = original_file.getparams()
 
         if params.sampwidth == 2:
-            print("The file already has 16-bit samples.")
+            if verbose:
+                print("The file already has 16-bit samples.")
             return
 
         elif params.sampwidth == 1:
@@ -19,7 +20,8 @@ def re_encode(file_name):
             new_frames = samples.astype(np.int16).tobytes()
 
         else:
-            print("Unsupported sample width.")
+            if verbose:
+                print("Unsupported sample width.")
             return
 
     # Write converted data back to the same file
@@ -27,4 +29,5 @@ def re_encode(file_name):
         new_file.setparams((1, 2, params.framerate, params.nframes, params.comptype, params.compname))
         new_file.writeframes(new_frames)
 
-    print(f"Conversion completed. Re-encoded {file_name} to 16-bit PCM.")
+    if verbose:
+        print(f"Conversion completed. Re-encoded {file_name} to 16-bit PCM.")
