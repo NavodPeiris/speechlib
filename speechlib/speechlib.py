@@ -6,7 +6,7 @@ from .convert_to_wav import (convert_to_wav)
 
 class Transcriptor:
 
-    def __init__(self, file, log_folder="logs", language=None, modelSize="tiny", ACCESS_TOKEN=None, voices_folder=None, quantization=False, output_format="both", **kwargs):
+    def __init__(self, file, log_folder="logs", language=None, modelSize="tiny", ACCESS_TOKEN=None, voices_folder=None, quantization=False, output_format="both", verbose=False, **kwargs):
         '''
         transcribe a wav file or a list of wav files
         
@@ -242,6 +242,7 @@ class Transcriptor:
         self.modelSize = modelSize
         self.quantization = quantization
         self.output_format = output_format
+        self.verbose = verbose
         self.ACCESS_TOKEN = ACCESS_TOKEN or os.environ.get("HUGGINGFACE_ACCESS_TOKEN") or os.environ.get("HF_TOKEN")
         self.kwargs = kwargs
 
@@ -254,7 +255,7 @@ class Transcriptor:
             else:
                 print(f"\nStarting processing for {f} ...")
             try:
-                res = core_analysis(f, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, model_type, self.quantization, custom_model_path, hf_model_id, aai_api_key, self.output_format, **self.kwargs)
+                res = core_analysis(f, self.voices_folder, self.log_folder, self.language, self.modelSize, self.ACCESS_TOKEN, model_type, self.quantization, custom_model_path, hf_model_id, aai_api_key, self.output_format, verbose=self.verbose, **self.kwargs)
                 results.append(res)
             except Exception as e:
                 if total_files > 1:
@@ -295,12 +296,12 @@ class PreProcessor:
 
     '''
 
-    def re_encode(self, file):
-        re_encode(file)
+    def re_encode(self, file, verbose=False):
+        re_encode(file, verbose=verbose)
     
-    def convert_to_mono(self, file):
-        convert_to_mono(file)
+    def convert_to_mono(self, file, verbose=False):
+        convert_to_mono(file, verbose=verbose)
 
-    def convert_to_wav(self, file):
-        path = convert_to_wav(file)
+    def convert_to_wav(self, file, verbose=False):
+        path = convert_to_wav(file, verbose=verbose)
         return path

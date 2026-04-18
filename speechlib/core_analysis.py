@@ -16,21 +16,24 @@ _pipeline_cache = {}
 
 # by default use google speech-to-text API
 # if False, then use whisper finetuned version for sinhala
-def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, model_type, quantization=False, custom_model_path=None, hf_model_id=None, aai_api_key=None, output_format="both", **kwargs):
+def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACCESS_TOKEN, model_type, quantization=False, custom_model_path=None, hf_model_id=None, aai_api_key=None, output_format="both", verbose=False, **kwargs):
 
     # <-------------------PreProcessing file-------------------------->
 
-    print(f"Preprocessing {file_name}: Converting to WAV...")
+    if verbose:
+        print(f"Preprocessing {file_name}: Converting to WAV...")
     # check if file is in wav format, if not convert to wav
-    file_name = convert_to_wav(file_name)
+    file_name = convert_to_wav(file_name, verbose=verbose)
 
-    print(f"Preprocessing {file_name}: Converting to Mono...")
+    if verbose:
+        print(f"Preprocessing {file_name}: Converting to Mono...")
     # convert file to mono
-    convert_to_mono(file_name)
+    convert_to_mono(file_name, verbose=verbose)
 
-    print(f"Preprocessing {file_name}: Re-encoding to 16-bit PCM...")
+    if verbose:
+        print(f"Preprocessing {file_name}: Re-encoding to 16-bit PCM...")
     # re-encode file to 16-bit PCM encoding
-    re_encode(file_name)
+    re_encode(file_name, verbose=verbose)
 
     # <--------------------running analysis--------------------------->
 
@@ -62,7 +65,8 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
     diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate}, min_speakers=min_speakers, max_speakers=max_speakers)
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
-    print(f"diarization done. Time taken: {elapsed_time} seconds.")
+    if verbose:
+        print(f"diarization done. Time taken: {elapsed_time} seconds.")
 
     speakers = {}
 
@@ -97,7 +101,8 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
             speaker_map[spk_tag] = spk
         end_time = int(time.time())
         elapsed_time = int(end_time - start_time)
-        print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
+        if verbose:
+            print(f"speaker recognition done. Time taken: {elapsed_time} seconds.")
 
     keys_to_remove = []
     merged = []
@@ -127,11 +132,12 @@ def core_analysis(file_name, voices_folder, log_folder, language, modelSize, ACC
     print("running transcription...")
     for spk_tag, spk_segments in speakers.items():
         spk = speaker_map[spk_tag]
-        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key, **kwargs)
+        segment_out = wav_file_segmentation(file_name, spk_segments, language, modelSize, model_type, quantization, custom_model_path, hf_model_id, aai_api_key, verbose=verbose, **kwargs)
         speakers[spk_tag] = segment_out
     end_time = int(time.time())
     elapsed_time = int(end_time - start_time)
-    print(f"transcription done. Time taken: {elapsed_time} seconds.")
+    if verbose:
+        print(f"transcription done. Time taken: {elapsed_time} seconds.")
 
     common_segments = []
 
