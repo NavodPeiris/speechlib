@@ -6,7 +6,7 @@ Recall.ai diarizes by pulling the speaker data and separate audio streams from t
 # Speechlib
 
 <p align="center">
-  <img src="speechlib.png" width="500px" />
+  <img src="https://github.com/NavodPeiris/speechlib/blob/main/transcript.png?raw=true" width="700"/>
 </p>
 
 <p align="center">
@@ -17,233 +17,465 @@ Recall.ai diarizes by pulling the speaker data and separate audio streams from t
     <a href="https://github.com/NavodPeiris/speechlib/issues"><img src="https://img.shields.io/github/issues/NavodPeiris/speechlib?color=9cc"></a>
     <a href="https://github.com/NavodPeiris/speechlib/stargazers"><img src="https://img.shields.io/github/stars/NavodPeiris/speechlib?color=ccf"></a>
     <a href="https://pypi.org/project/speechlib/"><img src="https://static.pepy.tech/badge/speechlib"></a>
-    
 </p>
 
-Speechlib is a library that unifies speaker diarization, transcription and speaker recognition in a single pipeline to create transcripts for audio conversations with actual speaker names and time tags. This library also contain audio preprocessor functions.
+Speechlib is a Python library that unifies speaker diarization, speaker recognition, and transcription into a single pipeline, producing transcripts with speaker names and time tags.
 
-### Run your IDE as administrator
+---
 
-you will get following error if administrator permission is not there:
+## Table of Contents
 
-**OSError: [WinError 1314] A required privilege is not held by the client**
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [GPU Execution](#gpu-execution)
+- [Quick Start](#quick-start)
+- [Pipeline Parameters](#pipeline-parameters)
+- [ASR Backends](#asr-backends)
+- [Diarization](#diarization)
+- [Speaker Recognition](#speaker-recognition)
+- [Examples](#examples)
+- [Output Format](#output-format)
+- [Audio Preprocessing](#audio-preprocessing)
+- [Supported Languages](#supported-languages)
+- [Performance](#performance)
+- [Citation](#citation)
 
-### Requirements
+---
 
-- Python 3.8 or greater
+## Requirements
 
-### GPU execution
+- Python 3.10 or greater
+- ffmpeg installed
 
-GPU execution needs CUDA 11.
+> **Windows users:** Run your IDE as administrator to avoid `OSError: [WinError 1314] A required privilege is not held by the client`.
 
-GPU execution requires the following NVIDIA libraries to be installed:
+---
+
+## Installation
+
+```bash
+# installs with cpu-only torch
+pip install speechlib
+
+# installs with gpu-supported torch (replace correct index url with your compatible cuda driver)
+pip install speechlib --extra-index-url https://download.pytorch.org/whl/cu126
+```
+
+> if this error occured: `hf_hub_download() got an unexpected keyword argument 'use_auth_token'`. then run `pip install --force-reinstall huggingface-hub==0.36.0`
+
+### Dependencies
+
+```
+accelerate>=1.12.0
+assemblyai>=0.50.0
+faster-whisper>=1.2.1
+huggingface-hub==0.36.0
+numpy==1.26.4
+openai-whisper>=20250625
+pyannote-audio==3.4.0
+pydub>=0.25.1
+speechbrain==1.0.3
+torch==2.2.0
+torchaudio==2.2.0
+torchvision==0.17.0
+transformers>=4.57.6
+```
+
+---
+
+## GPU Execution
+
+GPU execution requires CUDA 11 and the following NVIDIA libraries:
 
 - [cuBLAS for CUDA 11](https://developer.nvidia.com/cublas)
 - [cuDNN 8 for CUDA 11](https://developer.nvidia.com/cudnn)
 
-There are multiple ways to install these libraries. The recommended way is described in the official NVIDIA documentation, but we also suggest other installation methods below.
+---
 
-### Google Colab:
+## Quick Start
 
-on google colab run this to install CUDA dependencies:
+```python
+import os
+from speechlib import Pipeline, PyAnnoteDiarizer, FasterWhisperASR
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=os.environ["HF_TOKEN"],
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    asr_model=FasterWhisperASR("turbo"),
+    language=None,          # None = auto-detect
+    log_folder="logs",
+    output_format="both",   # "txt", "json", or "both"
+)
+
+segments = pipeline.run("interview.wav")
+```
+
+---
+
+## Pipeline Parameters
+
+| Parameter                   | Type                     | Default  | Description                                                                    |
+| --------------------------- | ------------------------ | -------- | ------------------------------------------------------------------------------ |
+| `diarization_model`         | `BaseDiarizer`           | required | Diarization backend instance                                                   |
+| `asr_model`                 | `BaseASR`                | required | ASR backend instance                                                           |
+| `speaker_recognition_model` | `BaseRecognizer \| None` | `None`   | Speaker recognition backend; omit to use anonymous `SPEAKER_XX` tags           |
+| `language`                  | `str \| None`            | `None`   | BCP-47 language code (e.g. `"en"`, `"fr"`), or `None` for auto-detection       |
+| `voices_folder`             | `str \| None`            | `None`   | Root directory of per-speaker reference recordings (see structure below)       |
+| `log_folder`                | `str`                    | `"logs"` | Output directory for transcript files                                          |
+| `output_format`             | `str`                    | `"both"` | `"txt"`, `"json"`, or `"both"`                                                 |
+| `verbose`                   | `bool`                   | `False`  | Print per-segment progress and stage timings                                   |
+| `srt`                       | `bool`                   | `False`  | Also write an SRT subtitle file                                                |
+| `workers`                   | `int \| None`            | `None`   | Threads for parallel transcription. `None` = `cpu_count - 1`, `1` = sequential |
+
+---
+
+## ASR Backends
+
+### FasterWhisperASR _(recommended)_
+
+CTranslate2-based faster-whisper. Lowest memory, fastest inference.
+
+```python
+from speechlib import FasterWhisperASR
+
+FasterWhisperASR(
+    model_size="turbo",       # tiny, base, small, medium, large, large-v1/v2/v3, turbo, large-v3-turbo
+    quantization=False,       # True = int8 quantization (less memory, faster on CPU/GPU)
+    beam_size=5,              # any whisper.transcribe kwarg accepted
+)
+```
+
+### WhisperASR
+
+OpenAI Whisper.
+
+```python
+from speechlib import WhisperASR
+
+WhisperASR(
+    model_size="turbo",
+    temperature=0.0,          # any whisper.transcribe kwarg accepted
+)
+```
+
+### CustomWhisperASR
+
+Local fine-tuned Whisper checkpoint.
+
+```python
+from speechlib import CustomWhisperASR
+
+CustomWhisperASR(model_path="/path/to/model.pt")
+```
+
+### HuggingFaceASR
+
+Any HuggingFace `automatic-speech-recognition` model.
+
+```python
+from speechlib import HuggingFaceASR
+
+HuggingFaceASR("distil-whisper/distil-small.en")
+```
+
+### AssemblyAIASR
+
+AssemblyAI cloud transcription.
+
+```python
+from speechlib import AssemblyAIASR
+import assemblyai as aai
+
+AssemblyAIASR(
+    api_key="your_assemblyai_key",
+    speech_model=aai.SpeechModel.nano,   # optional, defaults to nano
+)
+```
+
+---
+
+## Diarization
+
+### PyAnnoteDiarizer
+
+Requires a HuggingFace token with access to `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`.
+
+```python
+from speechlib import PyAnnoteDiarizer
+
+# Variable speaker count
+PyAnnoteDiarizer(
+    access_token="hf_...",
+    min_speakers=1,
+    max_speakers=4,
+)
+
+# Exact speaker count (more accurate when known)
+PyAnnoteDiarizer(
+    access_token="hf_...",
+    num_speakers=2,
+)
+```
+
+---
+
+## Speaker Recognition
+
+Provide a `voices_folder` with one subfolder per known speaker containing `.wav` reference recordings. The recognizer maps diarization tags to real names.
 
 ```
-!apt install libcublas11
+voices_folder/
+├── alice/
+│   └── alice_sample.wav
+└── bob/
+    └── bob_sample.wav
 ```
 
-You can see this example [notebook](https://colab.research.google.com/drive/1lpoWrHl5443LSnTG3vJQfTcg9oFiCQSz?usp=sharing)
+```python
+from speechlib import SpeechBrainRecognizer
 
-### installation:
-
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(access_token="hf_..."),
+    speaker_recognition_model=SpeechBrainRecognizer("speechbrain/spkrec-ecapa-voxceleb"),
+    asr_model=FasterWhisperASR("turbo"),
+    voices_folder="voices",
+    ...
+)
 ```
-pip install speechlib
+
+If `voices_folder` is not provided, speakers are labelled `SPEAKER_00`, `SPEAKER_01`, etc.
+
+---
+
+## Customizing the Pipeline
+
+You can plug in any diarization, recognition, or ASR backend by subclassing the abstract base classes. All provider-specific parameters go in `__init__`; the pipeline calls the abstract method at runtime.
+
+### Custom ASR
+
+```python
+from speechlib import BaseASR
+
+class MyASR(BaseASR):
+    def __init__(self, model_path: str):
+        self.model = load_my_model(model_path)   # your own loading logic
+
+    def transcribe(self, audio, language):
+        # audio is either a file path (str) or a BytesIO buffer
+        return self.model.infer(audio, lang=language)
 ```
 
-### Dependencies:
+### Custom Diarizer
 
+```python
+from speechlib import BaseDiarizer
+
+class MyDiarizer(BaseDiarizer):
+    def __init__(self, threshold: float = 0.5):
+        self.threshold = threshold
+
+    def diarize(self, waveform, sample_rate: int) -> list[tuple[float, float, str]]:
+        # waveform: torch.Tensor of shape (channels, samples)
+        # return [(start_sec, end_sec, speaker_tag), ...]
+        return my_diarize(waveform, sample_rate, threshold=self.threshold)
 ```
-dependencies = [
-    "accelerate>=1.12.0",
-    "assemblyai>=0.50.0",
-    "faster-whisper>=1.2.1",
-    "huggingface-hub==0.36.0",
-    "numpy==1.26.4",
-    "openai-whisper>=20250625",
-    "pyannote-audio==3.4.0",
-    "pydub>=0.25.1",
-    "speechbrain==1.0.3",
-    "torch==2.2.0",
-    "torchaudio==2.2.0",
-    "torchvision==0.17.0",
-    "transformers>=4.57.6",
+
+### Custom Speaker Recognizer
+
+```python
+from speechlib import BaseRecognizer
+
+class MyRecognizer(BaseRecognizer):
+    def recognize(self, file_name, voices_folder, segments, identified) -> str:
+        # file_name: path to the preprocessed mono WAV
+        # voices_folder: root dir with one subfolder per known speaker
+        # segments: [[start, end, tag], ...] for this speaker tag
+        # identified: names already assigned to other tags (must not reuse)
+        # return matched speaker name or "unknown"
+        return my_verify(file_name, voices_folder, segments, identified)
+```
+
+---
+
+## Examples
+
+### Minimal
+
+```python
+from speechlib import Pipeline, PyAnnoteDiarizer, FasterWhisperASR
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(access_token="hf_...", min_speakers=1, max_speakers=2),
+    asr_model=FasterWhisperASR("turbo"),
+    language=None,
+    log_folder="logs",
+    output_format="both",
+)
+segments = pipeline.run("interview.wav")
+```
+
+### With Speaker Recognition + SRT
+
+```python
+from speechlib import Pipeline, PyAnnoteDiarizer, SpeechBrainRecognizer, FasterWhisperASR
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(access_token="hf_...", min_speakers=1, max_speakers=2),
+    speaker_recognition_model=SpeechBrainRecognizer("speechbrain/spkrec-ecapa-voxceleb"),
+    asr_model=FasterWhisperASR("turbo", quantization=True, beam_size=5),
+    language="en",
+    voices_folder="voices",
+    log_folder="logs",
+    output_format="json",
+    srt=True,
+    verbose=True,
+)
+segments = pipeline.run("interview.wav")
+```
+
+### Batch Processing
+
+```python
+batch_results = pipeline.run(["call1.wav", "call2.wav", "call3.wav"])
+# returns list[list[dict]] — one inner list per file, in input order
+```
+
+### HuggingFace Backend
+
+```python
+from speechlib import Pipeline, PyAnnoteDiarizer, HuggingFaceASR
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(access_token="hf_...", num_speakers=2),
+    asr_model=HuggingFaceASR("distil-whisper/distil-small.en"),
+    language="en",
+    log_folder="logs",
+    output_format="json",
+)
+pipeline.run("interview.wav")
+```
+
+### AssemblyAI Backend
+
+```python
+from speechlib import Pipeline, PyAnnoteDiarizer, AssemblyAIASR
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(access_token="hf_...", min_speakers=1, max_speakers=2),
+    asr_model=AssemblyAIASR(api_key="your_assemblyai_key"),
+    log_folder="logs",
+    output_format="json",
+)
+pipeline.run("interview.wav")
+```
+
+### Custom ASR Backend
+
+```python
+from speechlib import Pipeline, PyAnnoteDiarizer, BaseASR
+
+import nemo.collections.asr as nemo_asr
+import threading
+
+class NemoASR(BaseASR):
+    def __init__(self):
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            model_name="nvidia/parakeet-tdt-0.6b-v2"
+        )
+        self.model.freeze()
+        self._lock = threading.Lock()   # this model does not support parallelism unfortunately
+
+    def transcribe(self, audio, language):
+        with self._lock:
+            if not isinstance(audio, str):
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                    tmp.write(audio.read())
+                    tmp_path = tmp.name
+                try:
+                    output = self.model.transcribe([tmp_path], timestamps=False)
+                finally:
+                    os.remove(tmp_path)
+            else:
+                output = self.model.transcribe([audio], timestamps=False)
+
+        return output[0].text
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        num_speakers=2
+    ),
+    asr_model=NemoASR(),
+    log_folder="logs",
+    output_format="json",
+)
+
+pipeline.run("interview.wav")
+```
+
+---
+
+## Output Format
+
+`pipeline.run()` returns a list of segment dicts:
+
+```python
+[
+    {
+        "file_name": "interview.wav",
+        "start_time": 1.0,
+        "end_time": 14.0,
+        "text": "Hello, welcome to the show.",
+        "speaker": "alice",           # or "SPEAKER_00" if no voices_folder
+        "model_used": "turbo",
+        "language_detected": "en",
+    },
+    ...
 ]
 ```
 
-### Introduction
+Transcript files are saved to `log_folder`:
 
-This library does speaker diarization, speaker recognition, and transcription on a single wav file to provide a transcript with actual speaker names. This library will also return an array containing result information. ⚙
+| Format  | Contents                                             |
+| ------- | ---------------------------------------------------- |
+| `.txt`  | `speaker (start : end) : text` per line              |
+| `.json` | Structured JSON with file metadata and segment array |
+| `.srt`  | SRT subtitle file (only when `srt=True`)             |
 
-This library contains following audio preprocessing functions:
+---
 
-1. convert other audio formats to wav
+## Audio Preprocessing
 
-2. convert stereo wav file to mono
+Non-WAV files are converted automatically by the pipeline. You can also run preprocessing manually:
 
-3. re-encode the wav file to have 16-bit PCM encoding
+```python
+from speechlib.convert_to_wav import convert_to_wav
+from speechlib.convert_to_mono import convert_to_mono
+from speechlib.re_encode import re_encode
 
-Transcriptor method takes 7 arguments.
-
-1. file to transcribe
-
-2. log_folder to store transcription
-
-3. language used for transcribing (language code is used)
-
-4. model size ("tiny", "small", "medium", "large", "large-v1", "large-v2", "large-v3")
-
-5. ACCESS_TOKEN: huggingface acccess token
-   1. Permission to access `pyannote/speaker-diarization@2.1` and `pyannote/segmentation`
-   2. Token requires permission for 'Read access to contents of all public gated repos you can access'
-
-6. voices_folder (contains speaker voice samples for speaker recognition)
-
-7. quantization: this determine whether to use int8 quantization or not. Quantization may speed up the process but lower the accuracy.
-
-voices_folder should contain subfolders named with speaker names. Each subfolder belongs to a speaker and it can contain many voice samples. This will be used for speaker recognition to identify the speaker.
-
-if voices_folder is not provided then speaker tags will be arbitrary.
-
-log_folder is to store the final transcript as a text file.
-
-transcript will also indicate the timeframe in seconds where each speaker speaks.
-
-### Transcription example:
-
-```
-import os
-from speechlib import Transcriptor
-
-file = "obama_zach.wav"  # your audio file
-voices_folder = "" # voices folder containing voice samples for recognition
-language = "en"          # language code
-log_folder = "logs"      # log folder for storing transcripts
-modelSize = "tiny"     # size of model to be used [tiny, small, medium, large-v1, large-v2, large-v3]
-quantization = False   # setting this 'True' may speed up the process but lower the accuracy
-ACCESS_TOKEN = "huggingface api key" # get permission to access pyannote/speaker-diarization@2.1 on huggingface
-
-# quantization only works on faster-whisper
-transcriptor = Transcriptor(file, log_folder, language, modelSize, ACCESS_TOKEN, voices_folder, quantization)
-
-# use normal whisper
-res = transcriptor.whisper()
-
-# use faster-whisper (simply faster)
-res = transcriptor.faster_whisper()
-
-# use a custom trained whisper model
-res = transcriptor.custom_whisper("D:/whisper_tiny_model/tiny.pt")
-
-# use a huggingface whisper model
-res = transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
-
-# use assembly ai model
-res = transcriptor.assemby_ai_model("assemblyAI api key")
-
-res --> [["start", "end", "text", "speaker"], ["start", "end", "text", "speaker"]...]
+file = convert_to_wav("audio.mp3")
+convert_to_mono(file)
+re_encode(file)
 ```
 
-#### if you don't want speaker names: keep voices_folder as an empty string ""
+---
 
-start: starting time of speech in seconds  
-end: ending time of speech in seconds  
-text: transcribed text for speech during start and end  
-speaker: speaker of the text
-
-#### voices_folder structure:
-
-![voices_folder_structure](voices_folder_structure1.png)
-
-#### Transcription:
-
-![transcription](transcript.png)
-
-supported language codes:
+## Supported Languages
 
 ```
-"af", "am", "ar", "as", "az", "ba", "be", "bg", "bn", "bo", "br", "bs", "ca", "cs", "cy", "da", "de", "el", "en", "es", "et", "eu", "fa", "fi", "fo", "fr", "gl", "gu", "ha", "haw", "he", "hi", "hr", "ht", "hu", "hy", "id", "is","it", "ja", "jw", "ka", "kk", "km", "kn", "ko", "la", "lb", "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn","mr", "ms", "mt", "my", "ne", "nl", "nn", "no", "oc", "pa", "pl", "ps", "pt", "ro", "ru", "sa", "sd", "si", "sk","sl", "sn", "so", "sq", "sr", "su", "sv", "sw", "ta", "te", "tg", "th", "tk", "tl", "tr", "tt", "uk", "ur", "uz","vi", "yi", "yo", "zh", "yue"
+af, am, ar, as, az, ba, be, bg, bn, bo, br, bs, ca, cs, cy, da, de, el, en, es, et,
+eu, fa, fi, fo, fr, gl, gu, ha, haw, he, hi, hr, ht, hu, hy, id, is, it, ja, jw, ka,
+kk, km, kn, ko, la, lb, ln, lo, lt, lv, mg, mi, mk, ml, mn, mr, ms, mt, my, ne, nl,
+nn, no, oc, pa, pl, ps, pt, ro, ru, sa, sd, si, sk, sl, sn, so, sq, sr, su, sv, sw,
+ta, te, tg, th, tk, tl, tr, tt, uk, ur, uz, vi, yi, yo, zh, yue
 ```
 
-supported language names:
+---
 
-```
-"Afrikaans", "Amharic", "Arabic", "Assamese", "Azerbaijani", "Bashkir", "Belarusian", "Bulgarian", "Bengali","Tibetan", "Breton", "Bosnian", "Catalan", "Czech", "Welsh", "Danish", "German", "Greek", "English", "Spanish","Estonian", "Basque", "Persian", "Finnish", "Faroese", "French", "Galician", "Gujarati", "Hausa", "Hawaiian","Hebrew", "Hindi", "Croatian", "Haitian", "Hungarian", "Armenian", "Indonesian", "Icelandic", "Italian", "Japanese","Javanese", "Georgian", "Kazakh", "Khmer", "Kannada", "Korean", "Latin", "Luxembourgish", "Lingala", "Lao","Lithuanian", "Latvian", "Malagasy", "Maori", "Macedonian", "Malayalam", "Mongolian", "Marathi", "Malay", "Maltese","Burmese", "Nepali", "Dutch", "Norwegian Nynorsk", "Norwegian", "Occitan", "Punjabi", "Polish", "Pashto","Portuguese", "Romanian", "Russian", "Sanskrit", "Sindhi", "Sinhalese", "Slovak", "Slovenian", "Shona", "Somali","Albanian", "Serbian", "Sundanese", "Swedish", "Swahili", "Tamil", "Telugu", "Tajik", "Thai", "Turkmen", "Tagalog","Turkish", "Tatar", "Ukrainian", "Urdu", "Uzbek", "Vietnamese", "Yiddish", "Yoruba", "Chinese", "Cantonese",
-```
-
-### Audio preprocessing example:
-
-```
-from speechlib import PreProcessor
-
-file = "obama1.mp3"
-#initialize
-prep = PreProcessor()
-# convert mp3 to wav
-wav_file = prep.convert_to_wav(file)
-
-# convert wav file from stereo to mono
-prep.convert_to_mono(wav_file)
-
-# re-encode wav file to have 16-bit PCM encoding
-prep.re_encode(wav_file)
-```
-
-### Performance
-
-```
-These metrics are from Google Colab tests.
-These metrics do not take into account model download times.
-These metrics are done without quantization enabled.
-(quantization will make this even faster)
-
-metrics for faster-whisper "tiny" model:
-    on gpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 24s
-        speaker recognition time: 10s
-        transcription time: 64s
-
-
-metrics for faster-whisper "small" model:
-    on gpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 24s
-        speaker recognition time: 10s
-        transcription time: 95s
-
-
-metrics for faster-whisper "medium" model:
-    on gpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 24s
-        speaker recognition time: 10s
-        transcription time: 193s
-
-
-metrics for faster-whisper "large" model:
-    on gpu:
-        audio name: obama_zach.wav
-        duration: 6 min 36 s
-        diarization time: 24s
-        speaker recognition time: 10s
-        transcription time: 343s
-```
-
-### Citation
-
-If you use Speechlib in your research or project, please cite it as:
+## Citation
 
 ```bibtex
 @software{speechlib,
@@ -255,7 +487,9 @@ If you use Speechlib in your research or project, please cite it as:
 }
 ```
 
-### Sponsorship
+---
+
+## Sponsorship ❤️
 
 If you find Speechlib useful, please consider supporting its development:
 
