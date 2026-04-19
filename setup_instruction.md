@@ -8,4 +8,14 @@ for publishing:
 
 for install locally for testing:
 
-- uv pip install dist/speechlib-1.1.17-py3-none-any.whl
+cd examples
+python -m venv venv
+venv/scripts/activate
+
+cpu:
+
+- pip install ../dist/speechlib-2.0.0-py3-none-any.whl
+
+gpu:
+
+- pip install ../dist/speechlib-2.0.0-py3-none-any.whl --extra-index-url https://download.pytorch.org/whl/cu126

@@ -1,65 +1,224 @@
 import os
-from speechlib import Transcriptor
-
-# Make sure you set your HuggingFace token in the environment!
-# os.environ["HUGGINGFACE_ACCESS_TOKEN"] = "your_huggingface_token"
-
-# ==========================================
-# Example 1: Basic Single File & Auto-Detect
-# ==========================================
-print("--- Example 1: Basic Usage ---")
-basic_transcriptor = Transcriptor(
-    file="obama_zach.wav", 
-    log_folder="logs_basic", 
-    language=None,             # None automatically triggers language detection
-    modelSize="turbo",         # 'turbo' models are fully supported!
-    # ACCESS_TOKEN=None,       # If omitted, reads from os.environ["HUGGINGFACE_ACCESS_TOKEN"]
-    output_format="both",      # Choose between "txt", "json", or "both"
+import tempfile
+from dotenv import load_dotenv
+from speechlib import (
+    Pipeline,
+    PyAnnoteDiarizer,
+    SpeechBrainRecognizer,
+    FasterWhisperASR,
+    WhisperASR,
+    HuggingFaceASR,
+    AssemblyAIASR,
+    BaseASR
 )
 
-# res1 = basic_transcriptor.faster_whisper()
+load_dotenv()
+HF_TOKEN = os.environ.get("HF_TOKEN")
+
+audio_file_path = "obama_zach_short.wav"
 
 
 # ==========================================
-# Example 2: Batch Processing & Customization
+# Example 1: Minimal — diarization + ASR only
 # ==========================================
-print("\n--- Example 2: Batch Processing & Advanced Customization ---")
-files_to_process = ["obama_zach.wav", "another_audio.wav"]
-voices_folder = "" # Folder containing subfolders named after each speaker with voice samples
-
-# You can pass ANY **kwargs to deeply customize Pyannote and Whisper parameters!
-advanced_transcriptor = Transcriptor(
-    file=files_to_process,     # Pass a list of files! The Pyannote pipeline is automatically cached to prevent reloading!
-    log_folder="logs_batch", 
-    language="en", 
-    modelSize="large-v3-turbo", 
-    quantization=True,         # Speeds up faster-whisper via int8 quantization
-    output_format="json",      # Output ONLY the rich JSON log
-    
-    # --- Diarization Kwargs ---
-    min_speakers=1,
-    max_speakers=5,
-    
-    # --- Whisper / Faster-Whisper Kwargs ---
-    beam_size=10,
-    temperature=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-    patience=1.0,
-    condition_on_previous_text=False
+print("--- Example 1: Minimal ---")
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    asr_model=FasterWhisperASR("tiny"),
+    language=None,       # auto-detect
+    log_folder="logs",
+    output_format="both",
 )
 
-# Uncomment the backend you want to use:
+segments = pipeline.run(audio_file_path)
 
-# 1. Use normal whisper
-# res = advanced_transcriptor.whisper()
 
-# 2. Use faster-whisper (simply faster)
-# res = advanced_transcriptor.faster_whisper()
+'''
+# ==========================================
+# Example 2: Minimal — diarization with pre-known exact speaker count + ASR only
+# ==========================================
+print("--- Example 2: Minimal — diarization with pre-known exact speaker count ---")
 
-# 3. Use a custom trained whisper model
-# res = advanced_transcriptor.custom_whisper("D:/whisper_tiny_model/tiny.pt")
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        num_speakers=2
+    ),
+    asr_model=FasterWhisperASR("tiny"),
+    language=None,       # auto-detect
+    log_folder="logs",
+    output_format="txt",
+)
 
-# 4. Use a huggingface whisper model
-# res = advanced_transcriptor.huggingface_model("Jingmiao/whisper-small-chinese_base")
+segments = pipeline.run(audio_file_path)
+'''
 
-# 5. Use assembly ai model
-# res = advanced_transcriptor.assemby_ai_model("assemblyAI api key")
+'''
+# ==========================================
+# Example 3: With speaker recognition + SRT
+# ==========================================
+print("\n--- Example 3: Speaker recognition, SRT ---")
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    speaker_recognition_model=SpeechBrainRecognizer(
+        "speechbrain/spkrec-ecapa-voxceleb"
+    ),
+    asr_model=FasterWhisperASR(
+        "tiny",
+        quantization=True,
+        beam_size=5,
+        condition_on_previous_text=False,
+    ),
+    language="en",
+    voices_folder="voices",   # subfolders named after each speaker
+    log_folder="logs",
+    output_format="json",
+    srt=True,
+    verbose=True,
+)
+
+segments = pipeline.run(audio_file_path)
+'''
+
+'''
+# ==========================================
+# Example 4: Batch processing
+# ==========================================
+print("\n--- Example 4: Batch ---")
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    speaker_recognition_model=SpeechBrainRecognizer(
+        "speechbrain/spkrec-ecapa-voxceleb"
+    ),
+    asr_model=FasterWhisperASR(
+        "tiny",
+        quantization=True,
+        beam_size=5,
+        condition_on_previous_text=False,
+    ),
+    language="en",
+    voices_folder="voices",   # subfolders named after each speaker
+    log_folder="logs",
+    output_format="json",
+    srt=True,
+    verbose=True,
+)
+
+batch_results = pipeline.run([audio_file_path, "obama1.wav"])
+'''
+
+'''
+# ==========================================
+# Example 5: OpenAI Whisper backend
+# ==========================================
+print("\n--- Example 5: OpenAI Whisper ---")
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    asr_model=WhisperASR("tiny", temperature=0.0),
+    log_folder="logs",
+    output_format="txt",
+)
+pipeline.run(audio_file_path)
+'''
+
+'''
+# ==========================================
+# Example 6: HuggingFace ASR model
+# ==========================================
+print("\n--- Example 6: HuggingFace ASR ---")
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    asr_model=HuggingFaceASR("distil-whisper/distil-small.en"),
+    language="en",
+    log_folder="logs",
+    output_format="json",
+)
+pipeline.run(audio_file_path)
+'''
+
+'''
+# ==========================================
+# Example 7: AssemblyAI ASR model
+# ==========================================
+print("\n--- Example 7: AssemblyAI ---")
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        min_speakers=1,
+        max_speakers=2,
+    ),
+    asr_model=AssemblyAIASR(api_key=os.environ.get("AAI_KEY")),
+    log_folder="logs",
+    output_format="json",
+)
+pipeline.run(audio_file_path)
+'''
+
+'''
+# ==========================================
+# Example 8: custom ASR stage
+# ==========================================
+print("\n--- Example 8: custom ASR stage ---")
+import nemo.collections.asr as nemo_asr
+import threading
+
+class NemoASR(BaseASR):
+    def __init__(self):
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            model_name="nvidia/parakeet-tdt-0.6b-v2"
+        )
+        self.model.freeze()
+        self._lock = threading.Lock()   # this model does not support parallelism unfortunately
+
+    def transcribe(self, audio, language):
+        with self._lock:
+            if not isinstance(audio, str):
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                    tmp.write(audio.read())
+                    tmp_path = tmp.name
+                try:
+                    output = self.model.transcribe([tmp_path], timestamps=False)
+                finally:
+                    os.remove(tmp_path)
+            else:
+                output = self.model.transcribe([audio], timestamps=False)
+
+        return output[0].text
+
+pipeline = Pipeline(
+    diarization_model=PyAnnoteDiarizer(
+        access_token=HF_TOKEN,
+        num_speakers=2
+    ),
+    asr_model=NemoASR(),
+    log_folder="logs",
+    output_format="json",
+)
+
+pipeline.run(audio_file_path)
+'''
