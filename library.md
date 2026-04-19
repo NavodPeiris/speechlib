@@ -66,19 +66,19 @@ pip install speechlib --extra-index-url https://download.pytorch.org/whl/cu126
 ### Dependencies
 
 ```
-accelerate>=1.12.0
-assemblyai>=0.50.0
-faster-whisper>=1.2.1
-huggingface-hub==0.36.0
-numpy==1.26.4
-openai-whisper>=20250625
-pyannote-audio==3.4.0
-pydub>=0.25.1
-speechbrain==1.0.3
-torch==2.2.0
-torchaudio==2.2.0
-torchvision==0.17.0
-transformers>=4.57.6
+"accelerate>=1.12.0",
+"assemblyai>=0.50.0",
+"faster-whisper>=1.2.1",
+"huggingface-hub==0.36.0",
+"numpy==1.26.4",
+"openai-whisper>=20250625",
+"pyannote-audio==3.4.0",
+"torch>=2.2,<2.8.0",
+"torchaudio>=2.2,<2.8.0",
+"pydub>=0.25.1",
+"soundfile>=0.13.1",
+"speechbrain==1.0.3",
+"transformers==4.57.6",
 ```
 
 ---

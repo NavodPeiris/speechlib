@@ -1,6 +1,6 @@
 [project]
 name = "speechlib"
-version = "2.0.0"
+version = "2.0.2"
 description = "Speechlib is a library that unifies speaker diarization, transcription and speaker recognition in a single pipeline to create transcripts for audio conversations with actual speaker names and time tags. This library also contains audio preprocessor functions."
 readme = "library.md"
 requires-python = ">=3.10"
@@ -65,3 +65,13 @@ Documentation = "https://github.com/NavodPeiris/speechlib#readme"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "speechlib/",
+    "library.md",
+    "LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["speechlib"]
